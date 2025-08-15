@@ -56,7 +56,7 @@ OWNER_GID = int(os.getenv("OWNER_GID", 1000))
 IGNORE_FILES = set(os.getenv("IGNORE_FILES", ".stfolder").split(","))
 IGNORE_PATTERNS = tuple(os.getenv(
     "IGNORE_PATTERNS",
-    ".syncthing.,.tmp,.nfo,sample,.txt,.jpg,.jpeg,.png,.sfv,.md5,.crc"
+    ".syncthing.,.tmp"
 ).split(","))
 
 # ======================
@@ -85,11 +85,10 @@ logger.addHandler(ch)
 # ======================
 # === UTILITIES ===
 # ======================
-def should_ignore(fname):
-    """Return True if filename matches ignore patterns."""
-    if fname in IGNORE_FILES:
+def should_ignore(filename):
+    if filename in IGNORE_FILES:
         return True
-    return any(p.lower() in fname.lower() for p in IGNORE_PATTERNS)
+    return any(pattern in filename for pattern in IGNORE_PATTERNS)
 
 def hardlink_file(src, dst, grace_cutoff):
     """Attempt to hardlink a file, respecting ignore rules, duplicates, and grace period."""
