@@ -65,6 +65,11 @@ IGNORE_PATTERNS = tuple(os.getenv(
 logger = logging.getLogger("SyncMover")
 logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
+# Ensure log directory exists
+log_dir = os.path.dirname(LOG_FILE)
+if log_dir:
+    os.makedirs(log_dir, exist_ok=True)
+
 formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S")
 
 # Rotating file handler
