@@ -86,7 +86,7 @@ def hardlink_file(src, dst, grace_cutoff):
 
     try:
         mtime = os.path.getmtime(src)
-        if mtime >= grace_cutoff:
+        if grace_cutoff >= 0 and mtime >= grace_cutoff:
             if LOG_GRACE_PERIOD_SKIPS:
                 logger.debug(f"Skipped (grace period for linking): {src}")
             return False
@@ -104,7 +104,10 @@ def hardlink_file(src, dst, grace_cutoff):
             action = "Hardlinked"
             log_func = logger.info
         except (OSError, PermissionError):
-            shutil.copy2(src, dst)
+            # Ensure source file is closed before copy
+            with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
+                shutil.copyfileobj(fsrc, fdst)
+            shutil.copystat(src, dst)
             action = "Copied"
             log_func = logger.warning
 
