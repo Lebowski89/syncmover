@@ -19,6 +19,8 @@ from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from threading import Thread
 import re
+import shutil
+import tempfile
 
 # ======================
 # === USER CONFIGURATION VIA ENVIRONMENT VARIABLES ===
@@ -37,6 +39,17 @@ LOG_FILE = os.getenv("LOG_FILE", "/logs/syncmover.log")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_ROTATE_SIZE = int(os.getenv("LOG_ROTATE_SIZE", 5*1024*1024))
 LOG_ROTATE_BACKUP = int(os.getenv("LOG_ROTATE_BACKUP", 5))
+
+# Ensure log directory exists safely
+log_dir = os.path.dirname(LOG_FILE)
+if log_dir and not os.path.exists(log_dir):
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+    except PermissionError:
+        tmp_log = tempfile.NamedTemporaryFile(prefix="syncmover_", suffix=".log", delete=False)
+        LOG_FILE = tmp_log.name
+        tmp_log.close()
+        log_dir = os.path.dirname(LOG_FILE)
 
 # Cleanup configuration
 CLEANUP_AFTER_HOURS = int(os.getenv("CLEANUP_AFTER_HOURS", 24))
@@ -65,11 +78,6 @@ IGNORE_PATTERNS = tuple(os.getenv(
 logger = logging.getLogger("SyncMover")
 logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
-# Ensure log directory exists
-log_dir = os.path.dirname(LOG_FILE)
-if log_dir:
-    os.makedirs(log_dir, exist_ok=True)
-
 formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S")
 
 # Rotating file handler
@@ -91,7 +99,7 @@ def should_ignore(filename):
     return any(pattern in filename for pattern in IGNORE_PATTERNS)
 
 def hardlink_file(src, dst, grace_cutoff):
-    """Attempt to hardlink a file, respecting ignore rules, duplicates, and grace period."""
+    """Attempt to hardlink a file; fall back to copy if hardlink fails."""
     fname = os.path.basename(src)
     if should_ignore(fname):
         return False
@@ -110,16 +118,21 @@ def hardlink_file(src, dst, grace_cutoff):
         if os.path.exists(dst):
             logger.debug(f"Skipped duplicate: {src} already exists at {dst}")
             return False
-        os.link(src, dst)
+        try:
+            os.link(src, dst)
+            action = "Hardlinked"
+        except (OSError, PermissionError):
+            shutil.copy2(src, dst)
+            action = "Copied"
         os.chown(dst, OWNER_UID, OWNER_GID)
-        logger.info(f"Hardlinked: {src} -> {dst}")
+        logger.info(f"{action}: {src} -> {dst}")
         return True
     except Exception as e:
-        logger.error(f"Error hardlinking {src}: {e}")
+        logger.error(f"Error linking or copying {src}: {e}")
         return False
 
 def process_folder(src, dst):
-    """Walk source folder and hardlink eligible files to destination."""
+    """Walk source folder and hardlink/copy eligible files to destination."""
     moved, skipped = 0, 0
     grace_cutoff = time.time() - GRACE_PERIOD_MINUTES * 60
 
