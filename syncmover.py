@@ -104,7 +104,6 @@ def hardlink_file(src, dst, grace_cutoff):
             action = "Hardlinked"
             log_func = logger.info
         except (OSError, PermissionError):
-            # Ensure source file is closed before copy
             with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
                 shutil.copyfileobj(fsrc, fdst)
             shutil.copystat(src, dst)
@@ -142,6 +141,7 @@ def process_folder(src, dst):
 # === CLEANUP ===
 # ======================
 def cleanup_folder_async(path, dry_run=False):
+    """Delete old files asynchronously in batches; return thread for testing."""
     def cleanup():
         now = time.time()
         cutoff = now - CLEANUP_AFTER_HOURS * 3600
@@ -194,7 +194,9 @@ def cleanup_folder_async(path, dry_run=False):
             if skipped_due_to_grace:
                 logger.debug(f"Total files skipped due to grace period: {skipped_due_to_grace}")
 
-    Thread(target=cleanup, daemon=True).start()
+    t = Thread(target=cleanup, daemon=True)
+    t.start()
+    return t  # <-- return thread so test can join
 
 # ======================
 # === SYNCTHING API ===
