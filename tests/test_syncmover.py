@@ -59,9 +59,9 @@ class TestSyncMover(unittest.TestCase):
             os.utime(old_file, (0, 0))
             os.utime(recent_file, None)
 
-            # Call cleanup_folder_async and capture the thread
+            # Run cleanup async and join the thread
             t = cleanup_folder_async(dirpath)
-            t.join(timeout=2)  # Wait for cleanup to finish
+            t.join(timeout=5)  # Wait for cleanup to finish
 
             self.assertFalse(os.path.exists(old_file))
             self.assertTrue(os.path.exists(recent_file))

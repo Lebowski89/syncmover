@@ -149,8 +149,8 @@ def cleanup_folder_async(path, dry_run=False):
         deleted_count = 0
         skipped_due_to_grace = 0
         files_to_delete = []
-        pass
 
+        # Gather all candidate files
         all_files = []
         for root, _, files in os.walk(path):
             for fname in files:
@@ -163,9 +163,13 @@ def cleanup_folder_async(path, dry_run=False):
                 except FileNotFoundError:
                     continue
 
+        # Sort by modification time, newest first
         all_files.sort(key=lambda x: x[1], reverse=True)
+
+        # Keep recent files
         files_to_consider = all_files[KEEP_RECENT_FILES:]
 
+        # Select files eligible for deletion
         for fpath, mtime in files_to_consider:
             if mtime >= grace_cutoff:
                 skipped_due_to_grace += 1
@@ -175,8 +179,9 @@ def cleanup_folder_async(path, dry_run=False):
             if mtime < cutoff:
                 files_to_delete.append(fpath)
 
+        # Delete in batches
         for i in range(0, len(files_to_delete), CLEANUP_BATCH_SIZE):
-            batch = files_to_delete[i:i+CLEANUP_BATCH_SIZE]
+            batch = files_to_delete[i:i + CLEANUP_BATCH_SIZE]
             for f in batch:
                 try:
                     if dry_run:
@@ -189,6 +194,7 @@ def cleanup_folder_async(path, dry_run=False):
             if batch and not dry_run:
                 logger.info(f"Deleted batch of {len(batch)} files from {path}")
 
+        # Final logging
         if not dry_run:
             if deleted_count:
                 logger.info(f"Total files deleted from {path}: {deleted_count}")
