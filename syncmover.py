@@ -16,7 +16,6 @@ import time
 import argparse
 import logging
 from logging.handlers import RotatingFileHandler
-from datetime import datetime
 from threading import Thread
 import re
 import shutil
@@ -114,17 +113,23 @@ def hardlink_file(src, dst, grace_cutoff):
         return False
 
     os.makedirs(os.path.dirname(dst), exist_ok=True)
+    if os.path.exists(dst):
+        logger.debug(f"Skipped duplicate: {src} already exists at {dst}")
+        return False
+
     try:
-        if os.path.exists(dst):
-            logger.debug(f"Skipped duplicate: {src} already exists at {dst}")
-            return False
         try:
             os.link(src, dst)
             action = "Hardlinked"
         except (OSError, PermissionError):
             shutil.copy2(src, dst)
             action = "Copied"
-        os.chown(dst, OWNER_UID, OWNER_GID)
+
+        try:
+            os.chown(dst, OWNER_UID, OWNER_GID)
+        except PermissionError:
+            pass
+
         logger.info(f"{action}: {src} -> {dst}")
         return True
     except Exception as e:
