@@ -8,6 +8,10 @@ on:
     branches:
       - main
   workflow_dispatch:
+  # Trigger on tags to push versioned images
+  push:
+    tags:
+      - 'v*.*.*'
 
 jobs:
   test:
@@ -21,10 +25,18 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: python-deps-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            python-deps-${{ runner.os }}-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests
+          pip install requests pytest
 
       - name: Run unit tests
         run: |
@@ -49,6 +61,16 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Set Docker image tags
+        id: docker_tags
+        run: |
+          IMAGE_TAGS="${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest ${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${{ github.sha }}"
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION_TAG="${GITHUB_REF#refs/tags/}"
+            IMAGE_TAGS="$IMAGE_TAGS ${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${VERSION_TAG}"
+          fi
+          echo "tags=$IMAGE_TAGS" >> $GITHUB_OUTPUT
+
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
@@ -56,9 +78,9 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${{ github.sha }}
+          tags: ${{ steps.docker_tags.outputs.tags }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest,mode=max
 
       - name: Inspect image digest
         run: docker buildx imagetools inspect ${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest
