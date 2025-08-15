@@ -121,16 +121,18 @@ def hardlink_file(src, dst, grace_cutoff):
         try:
             os.link(src, dst)
             action = "Hardlinked"
+            log_func = logger.info
         except (OSError, PermissionError):
             shutil.copy2(src, dst)
             action = "Copied"
+            log_func = logger.warning  # <-- fallback copy logs at WARNING
 
         try:
             os.chown(dst, OWNER_UID, OWNER_GID)
         except PermissionError:
             pass
 
-        logger.info(f"{action}: {src} -> {dst}")
+        log_func(f"{action}: {src} -> {dst}")
         return True
     except Exception as e:
         logger.error(f"Error linking or copying {src}: {e}")
