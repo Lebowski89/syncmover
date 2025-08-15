@@ -4,14 +4,12 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*.*.*'
   pull_request:
     branches:
       - main
   workflow_dispatch:
-  # Trigger on tags to push versioned images
-  push:
-    tags:
-      - 'v*.*.*'
 
 jobs:
   test:
@@ -36,11 +34,10 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests pytest
+          pip install -r requirements.txt
 
       - name: Run unit tests
-        run: |
-          python -m unittest discover -s tests
+        run: python -m unittest discover -s tests
 
   docker:
     needs: test
