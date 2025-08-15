@@ -1,0 +1,53 @@
+services:
+  syncmover:
+    image: lebowski89/syncmover:latest
+    container_name: syncmover
+    restart: unless-stopped
+    environment:
+      # Syncthing API
+      API_KEY_FILE: /run/secrets/syncthing_api_key
+      HOST: syncthing.local
+      PORT: 8384
+
+      # Cleanup & hardlink settings
+      CLEANUP_AFTER_HOURS: 24
+      CLEANUP_INTERVAL_MINUTES: 360
+      CLEANUP_BATCH_SIZE: 100
+      KEEP_RECENT_FILES: 10
+      GRACE_PERIOD_MINUTES: 15
+      LOG_GRACE_PERIOD_SKIPS: "True"
+      OWNER_UID: 1000
+      OWNER_GID: 1000
+
+      # Ignore files/patterns
+      IGNORE_FILES: ".stfolder"
+      IGNORE_PATTERNS: ".syncthing.,.tmp,.nfo,sample,.txt,.jpg,.jpeg,.png,.sfv,.md5,.crc"
+
+      # App folder labels (example: Radarr instance 0 and 1)
+      RADARR_0_FOLDER_LABEL: "radarr_sync"
+      RADARR_0_SYNCFOLDER_PATH: "/sync/radarr_0"
+      RADARR_0_SYNCMOVER_PATH: "/media/movies_0"
+
+      RADARR_1_FOLDER_LABEL: "radarr_4k"
+      RADARR_1_SYNCFOLDER_PATH: "/sync/radarr_1"
+      RADARR_1_SYNCMOVER_PATH: "/media/movies_1"
+
+      SONARR_0_FOLDER_LABEL: "sonarr_sync"
+      SONARR_0_SYNCFOLDER_PATH: "/sync/sonarr_0"
+      SONARR_0_SYNCMOVER_PATH: "/media/tv_0"
+
+      LIDARR_0_FOLDER_LABEL: "lidarr_sync"
+      LIDARR_0_SYNCFOLDER_PATH: "/sync/lidarr_0"
+      LIDARR_0_SYNCMOVER_PATH: "/media/music_0"
+
+    secrets:
+      - syncthing_api_key
+
+    volumes:
+      - ./logs:/logs
+      - ./sync:/sync      # Syncthing synced folders
+      - ./media:/media    # Output folders for hardlinks
+
+secrets:
+  syncthing_api_key:
+    file: ./secrets/syncthing_api_key.txt
