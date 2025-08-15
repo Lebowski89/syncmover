@@ -59,9 +59,15 @@ class TestSyncMover(unittest.TestCase):
             os.utime(old_file, (0, 0))
             os.utime(recent_file, None)
 
-            # Run cleanup async and join the thread
-            t = cleanup_folder_async(dirpath)
-            t.join(timeout=5)  # Wait for cleanup to finish
+            # Call cleanup with zero grace and zero keep_recent_files for deterministic deletion
+            t = cleanup_folder_async(
+                dirpath,
+                cleanup_after_hours=0,
+                grace_period_minutes=0,
+                keep_recent_files=0,
+                dry_run=False
+            )
+            t.join()  # Wait for async cleanup thread to finish
 
             self.assertFalse(os.path.exists(old_file))
             self.assertTrue(os.path.exists(recent_file))
