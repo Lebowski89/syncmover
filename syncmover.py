@@ -24,8 +24,6 @@ import tempfile
 # ======================
 # === USER CONFIGURATION VIA ENVIRONMENT VARIABLES ===
 # ======================
-
-# Syncthing API
 API_KEY = os.getenv("SYNCTHING_API_KEY", "")
 HOST = os.getenv("SYNCTHING_HOST", "127.0.0.1")
 PORT = int(os.getenv("SYNCTHING_PORT", 8384))
@@ -33,13 +31,11 @@ API_TIMEOUT = int(os.getenv("API_TIMEOUT", 15))
 API_URL = f"http://{HOST}:{PORT}/rest"
 HEADERS = {"X-API-Key": API_KEY}
 
-# Log configuration
 LOG_FILE = os.getenv("LOG_FILE", "/logs/syncmover.log")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_ROTATE_SIZE = int(os.getenv("LOG_ROTATE_SIZE", 5*1024*1024))
 LOG_ROTATE_BACKUP = int(os.getenv("LOG_ROTATE_BACKUP", 5))
 
-# Ensure log directory exists safely
 log_dir = os.path.dirname(LOG_FILE)
 if log_dir and not os.path.exists(log_dir):
     try:
@@ -50,41 +46,26 @@ if log_dir and not os.path.exists(log_dir):
         tmp_log.close()
         log_dir = os.path.dirname(LOG_FILE)
 
-# Cleanup configuration
 CLEANUP_AFTER_HOURS = int(os.getenv("CLEANUP_AFTER_HOURS", 24))
 CLEANUP_INTERVAL_MINUTES = int(os.getenv("CLEANUP_INTERVAL_MINUTES", 360))
 CLEANUP_BATCH_SIZE = int(os.getenv("CLEANUP_BATCH_SIZE", 100))
 KEEP_RECENT_FILES = int(os.getenv("KEEP_RECENT_FILES", 10))
-
-# Grace period configuration
 GRACE_PERIOD_MINUTES = int(os.getenv("GRACE_PERIOD_MINUTES", 15))
 LOG_GRACE_PERIOD_SKIPS = os.getenv("LOG_GRACE_PERIOD_SKIPS", "True").lower() in ("true", "1")
-
-# File ownership
 OWNER_UID = int(os.getenv("OWNER_UID", 1000))
 OWNER_GID = int(os.getenv("OWNER_GID", 1000))
-
-# Ignore files/patterns
 IGNORE_FILES = set(os.getenv("IGNORE_FILES", ".stfolder").split(","))
-IGNORE_PATTERNS = tuple(os.getenv(
-    "IGNORE_PATTERNS",
-    ".syncthing.,.tmp"
-).split(","))
+IGNORE_PATTERNS = tuple(os.getenv("IGNORE_PATTERNS", ".syncthing.,.tmp").split(","))
 
 # ======================
 # === LOGGING SETUP ===
 # ======================
 logger = logging.getLogger("SyncMover")
 logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
-
 formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S")
-
-# Rotating file handler
 fh = RotatingFileHandler(LOG_FILE, maxBytes=LOG_ROTATE_SIZE, backupCount=LOG_ROTATE_BACKUP)
 fh.setFormatter(formatter)
 logger.addHandler(fh)
-
-# Console handler
 ch = logging.StreamHandler()
 ch.setFormatter(formatter)
 logger.addHandler(ch)
@@ -125,7 +106,7 @@ def hardlink_file(src, dst, grace_cutoff):
         except (OSError, PermissionError):
             shutil.copy2(src, dst)
             action = "Copied"
-            log_func = logger.warning  # <-- fallback copy logs at WARNING
+            log_func = logger.warning
 
         try:
             os.chown(dst, OWNER_UID, OWNER_GID)
@@ -139,10 +120,8 @@ def hardlink_file(src, dst, grace_cutoff):
         return False
 
 def process_folder(src, dst):
-    """Walk source folder and hardlink/copy eligible files to destination."""
     moved, skipped = 0, 0
     grace_cutoff = time.time() - GRACE_PERIOD_MINUTES * 60
-
     for root, _, files in os.walk(src):
         for fname in files:
             if should_ignore(fname):
@@ -154,14 +133,12 @@ def process_folder(src, dst):
                 moved += 1
             else:
                 skipped += 1
-
     logger.info(f"Processed {moved} files, skipped {skipped} from {src} -> {dst}")
 
 # ======================
 # === CLEANUP ===
 # ======================
 def cleanup_folder_async(path, dry_run=False):
-    """Delete old files asynchronously in batches, keeping recent files if configured."""
     def cleanup():
         now = time.time()
         cutoff = now - CLEANUP_AFTER_HOURS * 3600
@@ -170,7 +147,6 @@ def cleanup_folder_async(path, dry_run=False):
         skipped_due_to_grace = 0
         files_to_delete = []
 
-        # Gather files with modification times
         all_files = []
         for root, _, files in os.walk(path):
             for fname in files:
@@ -183,7 +159,6 @@ def cleanup_folder_async(path, dry_run=False):
                 except FileNotFoundError:
                     continue
 
-        # Sort newest first and skip recent N files
         all_files.sort(key=lambda x: x[1], reverse=True)
         files_to_consider = all_files[KEEP_RECENT_FILES:]
 
@@ -196,7 +171,6 @@ def cleanup_folder_async(path, dry_run=False):
             if mtime < cutoff:
                 files_to_delete.append(fpath)
 
-        # Delete in batches
         for i in range(0, len(files_to_delete), CLEANUP_BATCH_SIZE):
             batch = files_to_delete[i:i+CLEANUP_BATCH_SIZE]
             for f in batch:
@@ -223,7 +197,6 @@ def cleanup_folder_async(path, dry_run=False):
 # === SYNCTHING API ===
 # ======================
 def get_folder_id_map():
-    """Fetch mapping of Syncthing folder labels to folder IDs."""
     try:
         r = requests.get(f"{API_URL}/system/config", headers=HEADERS, timeout=API_TIMEOUT)
         r.raise_for_status()
@@ -237,7 +210,6 @@ def get_folder_id_map():
 # === DYNAMIC FOLDER LABELS FROM ENV ===
 # ======================
 def build_folder_labels_from_env():
-    """Scan environment for APP_INSTANCE_FOLDER_LABEL, SYNCFOLDER_PATH, SYNCMOVER_PATH."""
     folder_labels = {}
     env_pattern = re.compile(r"(?P<app>[A-Z0-9]+)_(?P<instance>\d+)_FOLDER_LABEL")
     for env_key, folder_label in os.environ.items():

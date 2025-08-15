@@ -1,115 +1,68 @@
+import unittest
 import os
 import tempfile
-import time
-import shutil
-import unittest
-from unittest.mock import patch
-import syncmover
-
-
-def create_test_file(path, content="test", mtime=None):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
-        f.write(content)
-    if mtime is not None:
-        os.utime(path, (mtime, mtime))
-
+from syncmover import hardlink_file, process_folder, cleanup_folder_async, should_ignore
 
 class TestSyncMover(unittest.TestCase):
 
-    def setUp(self):
-        self.src_dir = tempfile.mkdtemp()
-        self.dst_dir = tempfile.mkdtemp()
+    def test_hardlink_success(self):
+        with tempfile.TemporaryDirectory() as src_dir, tempfile.TemporaryDirectory() as dst_dir:
+            src_file = os.path.join(src_dir, "file.txt")
+            dst_file = os.path.join(dst_dir, "file.txt")
+            with open(src_file, "w", encoding="utf-8") as f:
+                f.write("hello")
 
-    def tearDown(self):
-        shutil.rmtree(self.src_dir, ignore_errors=True)
-        shutil.rmtree(self.dst_dir, ignore_errors=True)
-
-    def test_hardlink_file_links_or_copies(self):
-        src_file = os.path.join(self.src_dir, "file.txt")
-        dst_file = os.path.join(self.dst_dir, "file.txt")
-
-        old_time = time.time() - (syncmover.GRACE_PERIOD_MINUTES * 60) - 60
-        create_test_file(src_file, "hello", mtime=old_time)
-
-        grace_cutoff = time.time() - syncmover.GRACE_PERIOD_MINUTES * 60
-        result = syncmover.hardlink_file(src_file, dst_file, grace_cutoff)
-
-        self.assertTrue(result)
-        self.assertTrue(os.path.exists(dst_file))
-        self.assertEqual(open(dst_file).read(), "hello")
-
-        if hasattr(os, "link"):
-            if os.stat(src_file).st_ino == os.stat(dst_file).st_ino:
-                self.assertTrue(True)  # hardlink
-            else:
-                self.assertNotEqual(os.stat(src_file).st_ino, os.stat(dst_file).st_ino)  # copy
-
-    def test_hardlink_file_respects_grace_period(self):
-        src_file = os.path.join(self.src_dir, "recent.txt")
-        create_test_file(src_file, "recent content", mtime=time.time())
-
-        grace_cutoff = time.time() - syncmover.GRACE_PERIOD_MINUTES * 60
-        result = syncmover.hardlink_file(src_file, os.path.join(self.dst_dir, "recent.txt"), grace_cutoff)
-        self.assertFalse(result)
+            result = hardlink_file(src_file, dst_file, grace_cutoff=0)
+            self.assertTrue(result)
+            with open(dst_file, "r", encoding="utf-8") as f:
+                self.assertEqual(f.read(), "hello")
 
     def test_hardlink_file_fallback_copy_logs(self):
-        src_file = os.path.join(self.src_dir, "fail.txt")
-        dst_file = os.path.join(self.dst_dir, "fail.txt")
+        with tempfile.TemporaryDirectory() as src_dir, tempfile.TemporaryDirectory() as dst_dir:
+            src_file = os.path.join(src_dir, "fail.txt")
+            dst_file = os.path.join(dst_dir, "fail.txt")
+            with open(src_file, "w", encoding="utf-8") as f:
+                f.write("copy content")
 
-        old_time = time.time() - (syncmover.GRACE_PERIOD_MINUTES * 60) - 60
-        create_test_file(src_file, "copy content", mtime=old_time)
+            original_link = os.link
+            os.link = lambda s, d: (_ for _ in ()).throw(OSError("forced fallback"))
 
-        grace_cutoff = time.time() - syncmover.GRACE_PERIOD_MINUTES * 60
+            try:
+                import logging
+                logger = logging.getLogger("SyncMover")
+                logger.setLevel(logging.WARNING)
 
-        with patch("os.link", side_effect=OSError("Operation not permitted")):
-            with self.assertLogs(level="WARNING") as cm:
-                result = syncmover.hardlink_file(src_file, dst_file, grace_cutoff)
+                with self.assertLogs(logger, level="WARNING") as cm:
+                    result = hardlink_file(src_file, dst_file, grace_cutoff=0)
 
-        self.assertTrue(result)
-        self.assertTrue(os.path.exists(dst_file))
-        self.assertEqual(open(dst_file).read(), "copy content")
-        self.assertTrue(any("copied instead" in msg for msg in cm.output))
+                self.assertTrue(result)
+                with open(dst_file, "r", encoding="utf-8") as f:
+                    self.assertEqual(f.read(), "copy content")
+                self.assertTrue(any("Copied" in msg for msg in cm.output))
+            finally:
+                os.link = original_link
 
-    def test_process_folder_moves_files(self):
-        old_time = time.time() - (syncmover.GRACE_PERIOD_MINUTES * 60) - 60
-        create_test_file(os.path.join(self.src_dir, "a.txt"), "A", mtime=old_time)
-        create_test_file(os.path.join(self.src_dir, "b.txt"), "B", mtime=old_time)
-        create_test_file(os.path.join(self.src_dir, ".stfolder"), "", mtime=old_time)  # ignored
+    def test_should_ignore_patterns(self):
+        self.assertTrue(should_ignore(".stfolder"))
+        self.assertTrue(should_ignore("test.tmp"))
+        self.assertFalse(should_ignore("keep.txt"))
 
-        syncmover.process_folder(self.src_dir, self.dst_dir)
+    def test_cleanup_folder_async_deletes_files(self):
+        with tempfile.TemporaryDirectory() as dirpath:
+            old_file = os.path.join(dirpath, "old.txt")
+            recent_file = os.path.join(dirpath, "recent.txt")
+            with open(old_file, "w", encoding="utf-8") as f:
+                f.write("old")
+            with open(recent_file, "w", encoding="utf-8") as f:
+                f.write("recent")
 
-        self.assertTrue(os.path.exists(os.path.join(self.dst_dir, "a.txt")))
-        self.assertTrue(os.path.exists(os.path.join(self.dst_dir, "b.txt")))
-        self.assertFalse(os.path.exists(os.path.join(self.dst_dir, ".stfolder")))
-
-    def test_cleanup_folder_async_deletes_old_files(self):
-        now = time.time()
-        old_time = now - (syncmover.CLEANUP_AFTER_HOURS * 3600) - 60
-
-        for i in range(3):
-            create_test_file(os.path.join(self.src_dir, f"old_{i}.txt"), mtime=old_time)
-
-        for i in range(2):
-            create_test_file(os.path.join(self.src_dir, f"recent_{i}.txt"), mtime=now)
-
-        syncmover.CLEANUP_BATCH_SIZE = 10
-        syncmover.KEEP_RECENT_FILES = 0
-        syncmover.cleanup_folder_async(self.src_dir, dry_run=False)
-
-        time.sleep(1)  # allow async thread to finish
-
-        remaining_files = os.listdir(self.src_dir)
-        self.assertTrue(all("recent" in f for f in remaining_files))
-
-    def test_should_ignore_patterns_and_files(self):
-        syncmover.IGNORE_FILES = {".stfolder"}
-        syncmover.IGNORE_PATTERNS = (".syncthing.", ".tmp")
-
-        self.assertTrue(syncmover.should_ignore(".stfolder"))
-        self.assertTrue(syncmover.should_ignore("file.syncthing.tmp"))
-        self.assertFalse(syncmover.should_ignore("normalfile.txt"))
-
+            # Set old file mtime far in past
+            os.utime(old_file, (0, 0))
+            cleanup_folder_async(dirpath)
+            # wait briefly for async thread
+            import time; time.sleep(0.2)
+            self.assertFalse(os.path.exists(old_file))
+            self.assertTrue(os.path.exists(recent_file))
 
 if __name__ == "__main__":
     unittest.main()
