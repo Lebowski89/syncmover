@@ -1,6 +1,8 @@
 import unittest
 import os
 import tempfile
+import time
+from unittest.mock import patch
 from syncmover import hardlink_file, process_folder, cleanup_folder_async, should_ignore
 
 class TestSyncMover(unittest.TestCase):
@@ -12,7 +14,8 @@ class TestSyncMover(unittest.TestCase):
             with open(src_file, "w", encoding="utf-8") as f:
                 f.write("hello")
 
-            result = hardlink_file(src_file, dst_file, grace_cutoff=0)
+            # Use negative grace_cutoff to bypass grace period in test
+            result = hardlink_file(src_file, dst_file, grace_cutoff=-1)
             self.assertTrue(result)
             with open(dst_file, "r", encoding="utf-8") as f:
                 self.assertEqual(f.read(), "hello")
@@ -24,23 +27,19 @@ class TestSyncMover(unittest.TestCase):
             with open(src_file, "w", encoding="utf-8") as f:
                 f.write("copy content")
 
-            original_link = os.link
-            os.link = lambda s, d: (_ for _ in ()).throw(OSError("forced fallback"))
-
-            try:
+            # Force os.link to raise OSError to test fallback copy
+            with patch("os.link", side_effect=OSError("forced fallback")):
                 import logging
                 logger = logging.getLogger("SyncMover")
                 logger.setLevel(logging.WARNING)
 
-                with self.assertLogs(logger, level="WARNING") as cm:
-                    result = hardlink_file(src_file, dst_file, grace_cutoff=0)
+                with self.assertLogs("SyncMover", level="WARNING") as cm:
+                    result = hardlink_file(src_file, dst_file, grace_cutoff=-1)
 
                 self.assertTrue(result)
                 with open(dst_file, "r", encoding="utf-8") as f:
                     self.assertEqual(f.read(), "copy content")
                 self.assertTrue(any("Copied" in msg for msg in cm.output))
-            finally:
-                os.link = original_link
 
     def test_should_ignore_patterns(self):
         self.assertTrue(should_ignore(".stfolder"))
@@ -56,12 +55,13 @@ class TestSyncMover(unittest.TestCase):
             with open(recent_file, "w", encoding="utf-8") as f:
                 f.write("recent")
 
-            # Set old file mtime far in past
+            # Set old file mtime far in past, recent file current
             os.utime(old_file, (0, 0))
-            os.utime(recent_file, None)  # current time
+            os.utime(recent_file, None)
 
+            # Call cleanup_folder_async and capture the thread
             t = cleanup_folder_async(dirpath)
-            t.join(timeout=2)  # wait for async cleanup to finish
+            t.join(timeout=2)  # Wait for cleanup to finish
 
             self.assertFalse(os.path.exists(old_file))
             self.assertTrue(os.path.exists(recent_file))
