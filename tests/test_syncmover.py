@@ -55,15 +55,13 @@ class TestSyncMover(unittest.TestCase):
             with open(recent_file, "w", encoding="utf-8") as f:
                 f.write("recent")
 
-            # Explicitly set mtimes
-            old_mtime = 0  # Far in the past
-            recent_mtime = time.time()  # Current
-            os.utime(old_file, (old_mtime, old_mtime))
-            os.utime(recent_file, (recent_mtime, recent_mtime))
+            # Set old file mtime far in past, recent file current
+            os.utime(old_file, (0, 0))
+            os.utime(recent_file, None)
 
-            # Run async cleanup
-            t = cleanup_folder_async(dirpath, dry_run=False)
-            t.join(timeout=5)  # Ensure cleanup completes before assertions
+            # Use keep_recent_override=0 to force deletion of old file
+            t = cleanup_folder_async(dirpath, dry_run=False, keep_recent_override=0)
+            t.join(timeout=5)
 
             self.assertFalse(os.path.exists(old_file))
             self.assertTrue(os.path.exists(recent_file))

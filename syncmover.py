@@ -140,21 +140,12 @@ def process_folder(src, dst):
 # ======================
 # === CLEANUP ===
 # ======================
-def cleanup_folder_async(path, dry_run=False, cleanup_after_hours=None,
-                         grace_period_minutes=None, keep_recent_files=None,
-                         batch_size=None):
+def cleanup_folder_async(path, dry_run=False, keep_recent_override=None):
     """Delete old files asynchronously in batches; return thread for testing."""
-
-    # Use provided parameters or fall back to global settings
-    cleanup_after_hours = cleanup_after_hours if cleanup_after_hours is not None else CLEANUP_AFTER_HOURS
-    grace_period_minutes = grace_period_minutes if grace_period_minutes is not None else GRACE_PERIOD_MINUTES
-    keep_recent_files = keep_recent_files if keep_recent_files is not None else KEEP_RECENT_FILES
-    batch_size = batch_size if batch_size is not None else CLEANUP_BATCH_SIZE
-
     def cleanup():
         now = time.time()
-        cutoff = now - cleanup_after_hours * 3600
-        grace_cutoff = now - grace_period_minutes * 60
+        cutoff = now - CLEANUP_AFTER_HOURS * 3600
+        grace_cutoff = now - GRACE_PERIOD_MINUTES * 60
         deleted_count = 0
         skipped_due_to_grace = 0
         files_to_delete = []
@@ -171,8 +162,12 @@ def cleanup_folder_async(path, dry_run=False, cleanup_after_hours=None,
                 except FileNotFoundError:
                     continue
 
+        # Sort newest first
         all_files.sort(key=lambda x: x[1], reverse=True)
-        files_to_consider = all_files[keep_recent_files:]
+
+        # Respect keep_recent_override if provided, else default KEEP_RECENT_FILES
+        keep_count = keep_recent_override if keep_recent_override is not None else KEEP_RECENT_FILES
+        files_to_consider = all_files[keep_count:]
 
         for fpath, mtime in files_to_consider:
             if mtime >= grace_cutoff:
@@ -183,8 +178,8 @@ def cleanup_folder_async(path, dry_run=False, cleanup_after_hours=None,
             if mtime < cutoff:
                 files_to_delete.append(fpath)
 
-        for i in range(0, len(files_to_delete), batch_size):
-            batch = files_to_delete[i:i+batch_size]
+        for i in range(0, len(files_to_delete), CLEANUP_BATCH_SIZE):
+            batch = files_to_delete[i:i+CLEANUP_BATCH_SIZE]
             for f in batch:
                 try:
                     if dry_run:
@@ -205,7 +200,7 @@ def cleanup_folder_async(path, dry_run=False, cleanup_after_hours=None,
 
     t = Thread(target=cleanup, daemon=True)
     t.start()
-    return t  # <-- return thread so test can join
+    return t  # <-- return thread so tests can join
 
 # ======================
 # === SYNCTHING API ===
