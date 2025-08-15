@@ -149,6 +149,7 @@ def cleanup_folder_async(path, dry_run=False):
         deleted_count = 0
         skipped_due_to_grace = 0
         files_to_delete = []
+        pass
 
         all_files = []
         for root, _, files in os.walk(path):
