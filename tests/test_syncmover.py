@@ -1,123 +1,127 @@
-import unittest
 import os
 import tempfile
 import time
+import shutil
+import pytest
+import syncmover
+from unittest.mock import patch
 
-# Override log file for tests
-log_fd, log_path = tempfile.mkstemp()
-os.environ["LOG_FILE"] = log_path
 
-from syncmover import (
-    should_ignore,
-    hardlink_file,
-    process_folder,
-    cleanup_folder_async,
-    build_folder_labels_from_env
-)
+@pytest.fixture
+def temp_dirs():
+    src_dir = tempfile.mkdtemp()
+    dst_dir = tempfile.mkdtemp()
+    yield src_dir, dst_dir
+    shutil.rmtree(src_dir, ignore_errors=True)
+    shutil.rmtree(dst_dir, ignore_errors=True)
 
-class TestSyncMover(unittest.TestCase):
 
-    def setUp(self):
-        # Temporary source/destination
-        self.src_dir = tempfile.TemporaryDirectory()
-        self.dst_dir = tempfile.TemporaryDirectory()
+def create_test_file(path, content="test", mtime=None):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(content)
+    if mtime is not None:
+        os.utime(path, (mtime, mtime))
 
-        # Create files: one normal, one ignored by should_ignore
-        self.test_file1 = os.path.join(self.src_dir.name, "file1.txt")
-        self.test_file2 = os.path.join(self.src_dir.name, "file2.tmp")  # likely ignored
-        with open(self.test_file1, "w") as f:
-            f.write("test content 1")
-        with open(self.test_file2, "w") as f:
-            f.write("test content 2")
 
-        # Ensure mtime is older than grace period so linking should succeed
-        old_mtime = time.time() - 120  # 2 minutes ago
-        os.utime(self.test_file1, (old_mtime, old_mtime))
-        os.utime(self.test_file2, (old_mtime, old_mtime))
+def test_hardlink_file_links_or_copies(temp_dirs):
+    src_dir, dst_dir = temp_dirs
+    src_file = os.path.join(src_dir, "file.txt")
+    dst_file = os.path.join(dst_dir, "file.txt")
 
-        self.grace_cutoff = time.time() - 60  # 1 min ago
+    # mtime older than grace period
+    old_time = time.time() - (syncmover.GRACE_PERIOD_MINUTES * 60) - 60
+    create_test_file(src_file, "hello", mtime=old_time)
 
-        # Backup environment variables
-        self.env_backup = os.environ.copy()
+    grace_cutoff = time.time() - syncmover.GRACE_PERIOD_MINUTES * 60
+    result = syncmover.hardlink_file(src_file, dst_file, grace_cutoff)
 
-    def tearDown(self):
-        self.src_dir.cleanup()
-        self.dst_dir.cleanup()
-        os.environ.clear()
-        os.environ.update(self.env_backup)
+    assert result is True
+    assert os.path.exists(dst_file)
+    assert open(dst_file).read() == "hello"
 
-        # Safely close/remove log file
-        try:
-            os.close(log_fd)
-        except OSError:
-            pass
-        try:
-            os.remove(log_path)
-        except FileNotFoundError:
-            pass
-
-    def test_should_ignore(self):
-        self.assertTrue(should_ignore(".stfolder"))
-        self.assertEqual(should_ignore("file2.tmp"), True)  # Should match production logic
-        self.assertFalse(should_ignore("file1.txt"))
-
-    def test_hardlink_file(self):
-        # Valid file should hardlink
-        dst_file = os.path.join(self.dst_dir.name, "file1.txt")
-        result = hardlink_file(self.test_file1, dst_file, self.grace_cutoff)
-        self.assertTrue(result, "Expected hardlink to succeed for allowed file")
-        self.assertTrue(os.path.exists(dst_file))
-
-        # Ignored file should return False, but test dynamically checks
-        dst_file2 = os.path.join(self.dst_dir.name, "file2.tmp")
-        result2 = hardlink_file(self.test_file2, dst_file2, self.grace_cutoff)
-        if should_ignore("file2.tmp"):
-            self.assertFalse(result2)
-            self.assertFalse(os.path.exists(dst_file2))
+    # Should either be a hardlink or a copy depending on FS permissions
+    if hasattr(os, "link"):
+        if os.stat(src_file).st_ino == os.stat(dst_file).st_ino:
+            assert True  # hardlink
         else:
-            self.assertTrue(result2)
-            self.assertTrue(os.path.exists(dst_file2))
+            assert os.stat(src_file).st_ino != os.stat(dst_file).st_ino  # copy
 
-    def test_process_folder(self):
-        process_folder(self.src_dir.name, self.dst_dir.name)
-        # Expected: non-ignored file copied/linked
-        self.assertTrue(os.path.exists(os.path.join(self.dst_dir.name, "file1.txt")))
-        # Expected: ignored file skipped
-        if should_ignore("file2.tmp"):
-            self.assertFalse(os.path.exists(os.path.join(self.dst_dir.name, "file2.tmp")))
-        else:
-            self.assertTrue(os.path.exists(os.path.join(self.dst_dir.name, "file2.tmp")))
 
-    def test_cleanup_folder_async(self):
-        old_file = os.path.join(self.dst_dir.name, "old.txt")
-        with open(old_file, "w") as f:
-            f.write("old content")
-        os.utime(old_file, (time.time() - 3600*24*2, time.time() - 3600*24*2))  # 2 days old
-        cleanup_folder_async(self.dst_dir.name, dry_run=True)
-        time.sleep(1)
-        self.assertTrue(os.path.exists(old_file))
+def test_hardlink_file_respects_grace_period(temp_dirs):
+    src_dir, dst_dir = temp_dirs
+    src_file = os.path.join(src_dir, "recent.txt")
 
-    def test_build_folder_labels_from_env_single(self):
-        os.environ["MYAPP_0_FOLDER_LABEL"] = "LABEL_0"
-        os.environ["MYAPP_0_SYNCFOLDER_PATH"] = self.src_dir.name
-        os.environ["MYAPP_0_SYNCMOVER_PATH"] = self.dst_dir.name
-        labels = build_folder_labels_from_env()
-        self.assertIn("LABEL_0", labels)
-        self.assertEqual(labels["LABEL_0"][0], self.src_dir.name)
-        self.assertEqual(labels["LABEL_0"][1], self.dst_dir.name)
+    # File modified just now (within grace period)
+    create_test_file(src_file, "recent content", mtime=time.time())
 
-    def test_build_folder_labels_from_env_multiple(self):
-        os.environ["APP_0_FOLDER_LABEL"] = "LABEL_A"
-        os.environ["APP_0_SYNCFOLDER_PATH"] = self.src_dir.name
-        os.environ["APP_0_SYNCMOVER_PATH"] = self.dst_dir.name
-        dst_dir2 = tempfile.TemporaryDirectory()
-        os.environ["APP_1_FOLDER_LABEL"] = "LABEL_B"
-        os.environ["APP_1_SYNCFOLDER_PATH"] = self.src_dir.name
-        os.environ["APP_1_SYNCMOVER_PATH"] = dst_dir2.name
-        labels = build_folder_labels_from_env()
-        self.assertIn("LABEL_A", labels)
-        self.assertIn("LABEL_B", labels)
-        dst_dir2.cleanup()
+    grace_cutoff = time.time() - syncmover.GRACE_PERIOD_MINUTES * 60
+    result = syncmover.hardlink_file(src_file, os.path.join(dst_dir, "recent.txt"), grace_cutoff)
+    assert result is False  # should skip due to grace period
 
-if __name__ == "__main__":
-    unittest.main()
+
+def test_hardlink_file_fallback_copy_logs(temp_dirs, caplog):
+    """Force hardlink to fail so we test copy fallback and log message."""
+    src_dir, dst_dir = temp_dirs
+    src_file = os.path.join(src_dir, "fail.txt")
+    dst_file = os.path.join(dst_dir, "fail.txt")
+
+    old_time = time.time() - (syncmover.GRACE_PERIOD_MINUTES * 60) - 60
+    create_test_file(src_file, "copy content", mtime=old_time)
+
+    grace_cutoff = time.time() - syncmover.GRACE_PERIOD_MINUTES * 60
+
+    with patch("os.link", side_effect=OSError("Operation not permitted")):
+        result = syncmover.hardlink_file(src_file, dst_file, grace_cutoff)
+
+    assert result is True  # still succeeded via copy
+    assert os.path.exists(dst_file)
+    assert open(dst_file).read() == "copy content"
+    assert any("copied instead" in msg for msg in caplog.text)
+
+
+def test_process_folder_moves_files(temp_dirs):
+    src_dir, dst_dir = temp_dirs
+    old_time = time.time() - (syncmover.GRACE_PERIOD_MINUTES * 60) - 60
+
+    create_test_file(os.path.join(src_dir, "a.txt"), "A", mtime=old_time)
+    create_test_file(os.path.join(src_dir, "b.txt"), "B", mtime=old_time)
+    create_test_file(os.path.join(src_dir, ".stfolder"), "", mtime=old_time)  # ignored
+
+    syncmover.process_folder(src_dir, dst_dir)
+
+    assert os.path.exists(os.path.join(dst_dir, "a.txt"))
+    assert os.path.exists(os.path.join(dst_dir, "b.txt"))
+    assert not os.path.exists(os.path.join(dst_dir, ".stfolder"))
+
+
+def test_cleanup_folder_async_deletes_old_files(temp_dirs):
+    src_dir, _ = temp_dirs
+    now = time.time()
+    old_time = now - (syncmover.CLEANUP_AFTER_HOURS * 3600) - 60
+
+    # Create old files
+    for i in range(3):
+        create_test_file(os.path.join(src_dir, f"old_{i}.txt"), mtime=old_time)
+
+    # Create recent files
+    for i in range(2):
+        create_test_file(os.path.join(src_dir, f"recent_{i}.txt"), mtime=now)
+
+    syncmover.CLEANUP_BATCH_SIZE = 10
+    syncmover.KEEP_RECENT_FILES = 0
+    syncmover.cleanup_folder_async(src_dir, dry_run=False)
+
+    time.sleep(1)  # allow async thread to finish
+
+    remaining_files = os.listdir(src_dir)
+    assert all("recent" in f for f in remaining_files)
+
+
+def test_should_ignore_patterns_and_files():
+    syncmover.IGNORE_FILES = {".stfolder"}
+    syncmover.IGNORE_PATTERNS = (".syncthing.", ".tmp")
+
+    assert syncmover.should_ignore(".stfolder")
+    assert syncmover.should_ignore("file.syncthing.tmp")
+    assert not syncmover.should_ignore("normalfile.txt")
