@@ -72,9 +72,15 @@ jobs:
             VERSION_TAG="${GITHUB_REF#refs/tags/}"
             IMAGE_TAGS="$IMAGE_TAGS,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${VERSION_TAG}"
           fi
+
+          # Set comma-separated output for docker/build-push-action
           echo "tags=$IMAGE_TAGS" >> $GITHUB_OUTPUT
-          # newline-separated for release notes
-          echo "image_list=$(echo $IMAGE_TAGS | tr ',' '\n')" >> $GITHUB_ENV
+
+          # Set newline-separated environment variable for release notes safely
+          IMAGE_LIST=$(echo "$IMAGE_TAGS" | tr ',' '\n')
+          echo "image_list<<EOF" >> $GITHUB_ENV
+          echo "$IMAGE_LIST" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
