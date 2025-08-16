@@ -73,6 +73,7 @@ jobs:
             IMAGE_TAGS="$IMAGE_TAGS,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${VERSION_TAG}"
           fi
           echo "tags=$IMAGE_TAGS" >> $GITHUB_OUTPUT
+          # newline-separated for release notes
           echo "image_list=$(echo $IMAGE_TAGS | tr ',' '\n')" >> $GITHUB_ENV
 
       - name: Build and push multi-arch image
