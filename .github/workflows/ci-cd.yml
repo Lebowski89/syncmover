@@ -64,6 +64,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: check login success
+        if: ${{ inputs.dry-run == 'false' }}
+        run: docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Set Docker image tags
         id: docker_tags
         run: |
