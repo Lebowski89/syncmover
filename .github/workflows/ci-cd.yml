@@ -76,17 +76,6 @@ jobs:
           # newline-separated for release notes
           echo "image_list=$(echo $IMAGE_TAGS | tr ',' '\n')" >> $GITHUB_ENV
 
-      - name: Set Docker image tags
-        id: docker_tags
-        run: |
-          IMAGE_TAGS="${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${{ github.sha }}"
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            VERSION_TAG="${GITHUB_REF#refs/tags/}"
-            IMAGE_TAGS="$IMAGE_TAGS,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${VERSION_TAG}"
-          fi
-          echo "tags=$(echo $IMAGE_TAGS | tr '\n' ',')" >> $GITHUB_OUTPUT
-          echo "image_list=$IMAGE_TAGS" >> $GITHUB_ENV
-
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
