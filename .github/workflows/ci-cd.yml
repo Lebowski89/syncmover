@@ -54,7 +54,8 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     outputs:
-      image_list: ${{ steps.export_tags.outputs.image_list }}
+      image_list: ${{ steps.docker_tags.outputs.image_list }}
+      tags: ${{ steps.docker_tags.outputs.tags }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -66,65 +67,45 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry-run != 'true' }}
+        if: ${{ inputs.dry-run != 'true' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # --- FIX: generate consistent tags/labels (latest, sha, semver + vsemver) ---
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/syncmover
-          tags: |
-            # latest for main and tags
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref,'refs/tags/') }}
-            # always publish a sha tag
-            type=sha
-            # only on tag refs, publish 1.2.3 and v1.2.3
-            type=semver,pattern={{version}},enable=${{ startsWith(github.ref,'refs/tags/') }}
-            type=semver,pattern=v{{version}},enable=${{ startsWith(github.ref,'refs/tags/') }}
-
-      - name: Debug resolved tags
+      - name: Set Docker image tags
+        id: docker_tags
         run: |
-          echo "Resolved tags from metadata-action:"
-          printf '%s\n' "${{ steps.meta.outputs.tags }}"
+          IMAGE_TAGS="${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest"
+          IMAGE_TAGS="$IMAGE_TAGS,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${{ github.sha }}"
 
-      # --- FIX: push is true unless workflow_dispatch + dry-run true ---
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION_TAG="${{ github.ref_name }}"
+            SEMVER_TAG="${VERSION_TAG#v}"  # remove leading 'v'
+            IMAGE_TAGS="$IMAGE_TAGS,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${VERSION_TAG},${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${SEMVER_TAG}"
+          fi
+
+          # CSV list (for build-push-action)
+          echo "tags=$IMAGE_TAGS" >> $GITHUB_OUTPUT
+
+          # Newline list (for release job)
+          echo "image_list<<EOF" >> $GITHUB_OUTPUT
+          echo "$IMAGE_TAGS" | tr ',' '\n'
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'workflow_dispatch' || inputs.dry-run != 'true' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: ${{ inputs.dry-run != 'true' }}
+          tags: ${{ steps.docker_tags.outputs.tags }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest,mode=max
 
-      # Make IMAGE_LIST available to later steps and jobs
-      - name: Export tag list for downstream jobs
-        id: export_tags
-        run: |
-          # Export to env for any later steps in this job
-          {
-            echo "IMAGE_LIST<<EOF"
-            echo "${{ steps.meta.outputs.tags }}"
-            echo "EOF"
-          } >> "$GITHUB_ENV"
-
-          # Also expose as job output for other jobs
-          {
-            echo "image_list<<EOF"
-            echo "${{ steps.meta.outputs.tags }}"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Inspect final image digest
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry-run != 'true' }}
+        if: ${{ inputs.dry-run != 'true' }}
         run: docker buildx imagetools inspect ${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest
 
   release:
@@ -161,7 +142,6 @@ jobs:
           echo "$IMAGE_LIST"
 
           CHANGED_IMAGES=""
-
           NEW_DIGEST=$(docker buildx imagetools inspect "${DOCKER_IMAGE_BASE}:latest" --format '{{ .Digest }}' 2>/dev/null || echo "")
           if [[ -z "$NEW_DIGEST" ]]; then
             echo "ERROR: Could not extract digest from latest image"
