@@ -2,8 +2,8 @@ name: Build & Release Multi-Arch Docker Image
 
 on:
   push:
-    branches: [main]
-    tags: ['v*.*.*']
+    branches: ["main"]
+    tags: ["v*.*.*"]
   workflow_dispatch:
     inputs:
       dry-run:
@@ -26,7 +26,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "${{ matrix.python-version }}"
 
       - name: Install dependencies
         run: |
@@ -69,7 +69,6 @@ jobs:
             IMAGE_TAGS="$IMAGE_TAGS,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${VERSION_TAG},${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${SEMVER_TAG}"
           fi
 
-          # Pass newline-separated list as output
           echo "image_list=$(echo "$IMAGE_TAGS" | tr ',' '\n')" >> $GITHUB_OUTPUT
 
       - name: Build and push multi-arch Docker image
@@ -107,8 +106,9 @@ jobs:
       - name: Prepare Docker image list for release
         id: prepare_images
         run: |
+          IMAGE_LIST="${{ needs.docker.outputs.image_list }}"
           echo "DEBUG: IMAGE_LIST from docker job:"
-          echo "${{ needs.docker.outputs.image_list }}"
+          echo "$IMAGE_LIST"
 
           CHANGED_IMAGES=""
           NEW_DIGEST=$(docker buildx imagetools inspect "${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest" --format '{{.Digest}}')
@@ -123,7 +123,7 @@ jobs:
             if [[ "$DIG" == "$NEW_DIGEST" ]]; then
               CHANGED_IMAGES+="- $img"$'\n'
             fi
-          done <<< "${{ needs.docker.outputs.image_list }}"
+          done <<< "$IMAGE_LIST"
 
           echo "changed_images<<EOF" >> $GITHUB_OUTPUT
           echo -n "$CHANGED_IMAGES" >> $GITHUB_OUTPUT
