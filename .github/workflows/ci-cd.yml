@@ -91,6 +91,11 @@ jobs:
           echo "$IMAGE_TAGS" | tr ',' '\n' >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Debug - print image_list just set
+        run: |
+          echo "DEBUG: Contents of image_list output:"
+          echo "${{ steps.docker_tags.outputs.image_list }}"
+
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
@@ -115,6 +120,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Debug - print image_list from docker job
+        run: |
+          echo "DEBUG: needs.docker.outputs.image_list is:"
+          echo "${{ needs.docker.outputs.image_list }}"
 
       - name: Generate release notes
         id: notes
