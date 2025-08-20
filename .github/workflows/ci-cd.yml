@@ -1,20 +1,10 @@
-name: Test & Build Multi-Arch Docker Image
+name: CI/CD
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*.*.*'
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
-    inputs:
-      dry-run:
-        description: 'Run workflow in dry-run mode (no push or release)'
-        required: false
-        default: 'false'
 
 permissions:
   contents: write
@@ -51,13 +41,11 @@ jobs:
         run: python -m unittest discover -s tests
 
   docker:
-    needs: test
     runs-on: ubuntu-latest
-    outputs:
-      image_list: ${{ steps.set_tags.outputs.image_list }}
+    needs: test
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -65,80 +53,82 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
-        if: ${{ inputs.dry-run != 'true' }}
+      - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Extract version
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Set Docker image tags
         id: set_tags
         run: |
-          IMAGE_TAGS="${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${{ github.sha }}"
-          
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            VERSION_TAG="${GITHUB_REF_NAME}"
-            SEMVER_TAG="${VERSION_TAG#v}"
-            IMAGE_TAGS="$IMAGE_TAGS,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${VERSION_TAG},${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${SEMVER_TAG}"
-          fi
-
+          VERSION="${{ steps.get_version.outputs.version }}"
+          IMAGE_BASE="${{ secrets.DOCKERHUB_USERNAME }}/syncmover"
+          IMAGE_TAGS="$IMAGE_BASE:latest|$IMAGE_BASE:${GITHUB_SHA}|$IMAGE_BASE:$VERSION|$IMAGE_BASE:${VERSION#v}"
           echo "tags=$IMAGE_TAGS" >> $GITHUB_OUTPUT
-          # store as comma-separated for release job
-          echo "image_list=$IMAGE_TAGS" >> $GITHUB_OUTPUT
 
-      - name: Build and push multi-arch image
+      - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: Dockerfile
+          push: true
           platforms: linux/amd64,linux/arm64
-          push: ${{ inputs.dry-run != 'true' }}
           tags: ${{ steps.set_tags.outputs.tags }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest,mode=max
 
-      - name: Inspect final image digest
-        if: ${{ inputs.dry-run != 'true' }}
-        run: docker buildx imagetools inspect ${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest
+      # Save tags into artifact so release job can consume them
+      - name: Save image list as artifact
+        run: echo "${{ steps.set_tags.outputs.tags }}" > image_list.txt
+      - uses: actions/upload-artifact@v3
+        with:
+          name: image_list
+          path: image_list.txt
 
   release:
-    needs: docker
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: docker
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Download image list
+        uses: actions/download-artifact@v3
         with:
-          fetch-depth: 0
+          name: image_list
+          path: .
 
-      - name: Debug Docker image list
+      - name: Load image list
+        id: load_images
         run: |
-          echo "DEBUG: IMAGE_LIST from docker job output:"
-          echo "${{ needs.docker.outputs.image_list }}"
-          
-          for img in $(echo "${{ needs.docker.outputs.image_list }}" | tr ',' ' '); do
-            echo "Inspecting $img"
-            docker buildx imagetools inspect "$img" || echo "WARNING: Could not inspect $img"
-          done
+          IMAGE_LIST=$(cat image_list.txt)
+          echo "image_list=$IMAGE_LIST" >> $GITHUB_OUTPUT
 
-      - name: Generate release notes
-        id: notes
-        uses: release-drafter/release-drafter@v6
-        with:
-          config-name: release-drafter.yml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prepare Docker image list for release notes
-        id: prepare_images
+      - name: Debug image list
         run: |
-          IMAGE_LIST="${{ needs.docker.outputs.image_list }}"
+          echo "DEBUG: Loaded IMAGE_LIST ->"
+          cat image_list.txt
+
+      - name: Compare digests & prepare release notes
+        id: compare
+        run: |
+          IFS='|' read -ra IMAGE_ARRAY <<< "${{ steps.load_images.outputs.image_list }}"
+
           CHANGED_IMAGES=""
+          NEW_DIGEST=$(docker buildx imagetools inspect "${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest" --format '{{.Digest}}' 2>/dev/null || echo "")
 
-          for img in $(echo "$IMAGE_LIST" | tr ',' ' '); do
+          if [[ -z "$NEW_DIGEST" ]]; then
+            echo "ERROR: Could not extract digest from latest image"
+            exit 1
+          fi
+
+          for img in "${IMAGE_ARRAY[@]}"; do
             DIG=$(docker buildx imagetools inspect "$img" --format '{{.Digest}}' 2>/dev/null || echo "")
-            if [[ -n "$DIG" ]]; then
+            if [[ "$DIG" == "$NEW_DIGEST" ]]; then
               CHANGED_IMAGES+="- $img"$'\n'
             fi
           done
@@ -147,17 +137,14 @@ jobs:
             echo "changed_images<<EOF"
             echo -n "$CHANGED_IMAGES"
             echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          } >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: Release ${{ github.ref_name }} ${{ inputs.dry-run == 'true' && '⚠️ DRY-RUN' || '' }}
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.docker.outputs.version }}
           body: |
-            ${{ steps.notes.outputs.body }}
-
-            ## Docker Images
-            ${{ steps.prepare_images.outputs.changed_images }}
-
-            ${{ inputs.dry-run == 'true' && '⚠️ This was a dry-run, images were not pushed!' || '' }}
+            ## Docker Images Published
+            ${{ steps.compare.outputs.changed_images }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
