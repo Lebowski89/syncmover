@@ -1,0 +1,19 @@
+- name: feature
+  color: 1D76DB
+  description: New feature or enhancement
+
+- name: bug
+  color: D73A4A
+  description: Something isn’t working
+
+- name: chore
+  color: C5DEF5
+  description: Maintenance, refactor, or cleanup
+
+- name: docs
+  color: 0075ca
+  description: Documentation improvements
+
+- name: dependencies
+  color: A2EEEF
+  description: Dependency updates
