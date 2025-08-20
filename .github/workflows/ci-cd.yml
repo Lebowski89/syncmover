@@ -81,16 +81,14 @@ jobs:
 
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             VERSION_TAG="${{ github.ref_name }}"
-            SEMVER_TAG="${VERSION_TAG#v}"  # remove leading 'v'
+            SEMVER_TAG="${VERSION_TAG#v}"
             IMAGE_TAGS="$IMAGE_TAGS,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${VERSION_TAG},${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${SEMVER_TAG}"
           fi
 
-          # CSV list (for build-push-action)
           echo "tags=$IMAGE_TAGS" >> $GITHUB_OUTPUT
 
-          # Newline list (for release job)
           echo "image_list<<EOF" >> $GITHUB_OUTPUT
-          echo "$IMAGE_TAGS" | tr ',' '\n'
+          echo "$IMAGE_TAGS" | tr ',' '\n' >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Build and push multi-arch image
@@ -118,12 +116,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Generate release notes
         id: notes
         uses: release-drafter/release-drafter@v6
@@ -134,14 +126,12 @@ jobs:
 
       - name: Prepare Docker image list for release notes
         id: prepare_images
-        env:
-          IMAGE_LIST: ${{ needs.docker.outputs.image_list }}
-          DOCKER_IMAGE_BASE: ${{ secrets.DOCKERHUB_USERNAME }}/syncmover
         run: |
           echo "DEBUG: IMAGE_LIST is ->"
-          echo "$IMAGE_LIST"
+          echo "${IMAGE_LIST}"
 
           CHANGED_IMAGES=""
+
           NEW_DIGEST=$(docker buildx imagetools inspect "${DOCKER_IMAGE_BASE}:latest" --format '{{ .Digest }}' 2>/dev/null || echo "")
           if [[ -z "$NEW_DIGEST" ]]; then
             echo "ERROR: Could not extract digest from latest image"
@@ -161,6 +151,9 @@ jobs:
             echo -n "$CHANGED_IMAGES"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+        env:
+          DOCKER_IMAGE_BASE: ${{ secrets.DOCKERHUB_USERNAME }}/syncmover
+          IMAGE_LIST: ${{ needs.docker.outputs.image_list }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
