@@ -17,7 +17,7 @@ jobs:
         python-version: ["3.9", "3.10", "3.11"]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
@@ -38,7 +38,15 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run unit tests
-        run: python -m unittest discover -s tests
+        run: |
+          python -m unittest discover -s tests > results.log
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: results.log
 
   docker:
     runs-on: ubuntu-latest
@@ -80,6 +88,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.set_tags.outputs.tags }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:buildcache,mode=max
 
       # Save tags into artifact so release job can consume them
       - name: Save image list as artifact
@@ -133,11 +143,20 @@ jobs:
             fi
           done
 
+          if [[ -z "$CHANGED_IMAGES" ]]; then
+            CHANGED_IMAGES="(No matching digest found — check image builds)"
+          fi
+
           {
             echo "changed_images<<EOF"
             echo -n "$CHANGED_IMAGES"
             echo "EOF"
           } >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        run: |
+          echo "## Changes" > CHANGELOG.md
+          git log $(git describe --tags --abbrev=0 @^)..@ --pretty=format:"- %s" >> CHANGELOG.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -146,5 +165,7 @@ jobs:
           body: |
             ## Docker Images Published
             ${{ steps.compare.outputs.changed_images }}
+
+            $(cat CHANGELOG.md)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
