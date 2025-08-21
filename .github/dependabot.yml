@@ -15,31 +15,13 @@ updates:
         update-types: ["minor", "patch"]
     labels:
       - "dependencies"
-      - "automerge"
+      - "automerge"   # Safe to merge automatically
 
-  # Python - security updates (daily)
+  # Python dependencies (requirements.txt)
   - package-ecosystem: "pip"
     directory: "/"
-    target-branch: "main"
     schedule:
-      interval: "daily"
-    commit-message:
-      prefix: "chore"
-      include: "scope"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "security"
-      - "automerge"
-    allow:
-      - dependency-type: "direct"
-
-  # Python - regular updates (weekly)
-  - package-ecosystem: "pip"
-    directory: "/"
-    target-branch: "main"
-    schedule:
-      interval: "weekly"
+      interval: "weekly" # normal updates weekly, but security PRs are immediate
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -47,13 +29,19 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
-    labels:
-      - "dependencies"
-      - "automerge"
+      security:
+        applies-to: security-updates
     allow:
       - dependency-type: "direct"
+    labels:
+      - "dependencies"
+      - "security"
+      - "automerge"   # Minor/patch + security auto-merge
+    ignore:
+      - dependency-type: "all"
+        update-types: ["version-update:semver-major"] # keep majors manual
 
-  # Dockerfile
+  # Dockerfile base images
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
