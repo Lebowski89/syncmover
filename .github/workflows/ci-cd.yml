@@ -67,29 +67,31 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract version
-        id: get_version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Set Docker image tags
         id: set_tags
         run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          IMAGE_BASE="${{ secrets.DOCKERHUB_USERNAME }}/syncmover"
-          IMAGE_TAGS="$IMAGE_BASE:latest|$IMAGE_BASE:${GITHUB_SHA}|$IMAGE_BASE:$VERSION|$IMAGE_BASE:${VERSION#v}"
-          echo "tags=$IMAGE_TAGS" >> $GITHUB_OUTPUT
+          IMAGE_TAGS="${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${{ github.sha }}"
+          
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION_TAG="${GITHUB_REF_NAME}"
+            SEMVER_TAG="${VERSION_TAG#v}"
+            IMAGE_TAGS="$IMAGE_TAGS,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${VERSION_TAG},${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${SEMVER_TAG}"
+          fi
 
-      - name: Build and push
+          echo "tags=$IMAGE_TAGS" >> $GITHUB_OUTPUT
+          # store as comma-separated for release job
+          echo "image_list=$IMAGE_TAGS" >> $GITHUB_OUTPUT
+
+      - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
+          file: Dockerfile
           platforms: linux/amd64,linux/arm64
+          push: true
           tags: ${{ steps.set_tags.outputs.tags }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:buildcache,mode=max
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest,mode=max
 
       # Save tags into artifact so release job can consume them
       - name: Save image list as artifact
