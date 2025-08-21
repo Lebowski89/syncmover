@@ -17,7 +17,7 @@ jobs:
         python-version: ["3.9", "3.10", "3.11"]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
@@ -47,7 +47,7 @@ jobs:
       image_list: ${{ steps.set_tags.outputs.image_list }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -72,10 +72,6 @@ jobs:
             IMAGE_TAGS="$IMAGE_TAGS,${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${VERSION_TAG},${{ secrets.DOCKERHUB_USERNAME }}/syncmover:${SEMVER_TAG}"
           fi
 
-          echo "tags=$IMAGE_TAGS" >> $GITHUB_OUTPUT
-          # store as comma-separated for release job
-          echo "image_list=$IMAGE_TAGS" >> $GITHUB_OUTPUT
-
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
@@ -90,6 +86,16 @@ jobs:
       - name: Inspect final image digest
         run: docker buildx imagetools inspect ${{ secrets.DOCKERHUB_USERNAME }}/syncmover:latest
 
+      - name: Save image list as artifact
+        run: |
+          echo "${{ steps.set_tags.outputs.tags }}" > image_list.txt
+        shell: bash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image_list
+          path: image_list.txt
+
   release:
     needs: docker
     runs-on: ubuntu-latest
@@ -100,15 +106,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Debug Docker image list
+      - name: Download image list
+        uses: actions/download-artifact@v3
+        with:
+          name: image_list
+          path: .
+
+      - name: Load image list
+        id: load_images
         run: |
-          echo "DEBUG: IMAGE_LIST from docker job output:"
-          echo "${{ needs.docker.outputs.image_list }}"
-          
-          for img in $(echo "${{ needs.docker.outputs.image_list }}" | tr ',' ' '); do
-            echo "Inspecting $img"
-            docker buildx imagetools inspect "$img" || echo "WARNING: Could not inspect $img"
-          done
+          IMAGE_LIST=$(cat image_list.txt)
+          echo "image_list=$IMAGE_LIST" >> $GITHUB_OUTPUT
 
       - name: Generate release notes
         id: notes
@@ -121,7 +129,7 @@ jobs:
       - name: Prepare Docker image list for release notes
         id: prepare_images
         run: |
-          IMAGE_LIST="${{ needs.docker.outputs.image_list }}"
+          IMAGE_LIST="${{ steps.load_images.outputs.image_list }}"
           CHANGED_IMAGES=""
 
           for img in $(echo "$IMAGE_LIST" | tr ',' ' '); do
