@@ -1,6 +1,7 @@
+# .github/dependabot.yml
 version: 2
 updates:
-  # Keep GitHub Actions up to date
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -16,9 +17,27 @@ updates:
       - "dependencies"
       - "automerge"
 
-  # Weekly Python dependency updates (requirements.txt)
+  # Python - security updates (daily)
   - package-ecosystem: "pip"
     directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "security"
+      - "automerge"
+    allow:
+      - dependency-type: "direct"
+
+  # Python - regular updates (weekly)
+  - package-ecosystem: "pip"
+    directory: "/"
+    target-branch: "main"
     schedule:
       interval: "weekly"
     commit-message:
@@ -28,29 +47,13 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
-    allow:
-      - dependency-type: "direct"
     labels:
       - "dependencies"
       - "automerge"
-
-  # Daily security-focused Python updates
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    commit-message:
-      prefix: "fix"
-      include: "security"
-    open-pull-requests-limit: 10
     allow:
       - dependency-type: "direct"
-    labels:
-      - "dependencies"
-      - "security"
-      - "automerge"
 
-  # Keep Dockerfile base images up to date
+  # Dockerfile
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
