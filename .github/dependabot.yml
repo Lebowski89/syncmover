@@ -36,7 +36,7 @@ updates:
       minor-and-patch:
         update-types: ["minor", "patch"]
       security:
-        update-types: ["all"]
+        applies-to: security-updates
     labels:
       - "dependencies"
       - "security"
