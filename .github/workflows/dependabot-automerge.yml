@@ -4,9 +4,9 @@ on:
   pull_request:
     types:
       - opened
-      - synchronize
       - reopened
       - labeled
+      - synchronize
 
 permissions:
   pull-requests: write
@@ -14,8 +14,8 @@ permissions:
 
 jobs:
   automerge:
+    if: contains(github.event.pull_request.user.login, 'dependabot[bot]') && contains(github.event.pull_request.labels.*.name, 'automerge')
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.labels.*.name, 'automerge') && github.actor == 'dependabot[bot]'
     steps:
       - name: Enable auto-merge for Dependabot PRs
         uses: peter-evans/enable-pull-request-automerge@v3

@@ -1,7 +1,7 @@
 # .github/dependabot.yml
 version: 2
 updates:
-  # GitHub Actions
+  # GitHub Actions updates
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -15,33 +15,34 @@ updates:
         update-types: ["minor", "patch"]
     labels:
       - "dependencies"
-      - "automerge"   # Safe to merge automatically
+      - "automerge"
 
   # Python dependencies (requirements.txt)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly" # normal updates weekly, but security PRs are immediate
+      interval: "weekly"
     commit-message:
       prefix: "chore"
       include: "scope"
     open-pull-requests-limit: 10
+    allow:
+      - dependency-type: "direct"
+    ignore:
+      # Ignore major updates to require manual review
+      - dependency-type: "all"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
       security:
-        applies-to: security-updates
-    allow:
-      - dependency-type: "direct"
+        update-types: ["all"]
     labels:
       - "dependencies"
       - "security"
-      - "automerge"   # Minor/patch + security auto-merge
-    ignore:
-      - dependency-type: "all"
-        update-types: ["version-update:semver-major"] # keep majors manual
+      - "automerge"
 
-  # Dockerfile base images
+  # Docker base images
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
