@@ -94,7 +94,7 @@ jobs:
       # Save tags into artifact so release job can consume them
       - name: Save image list as artifact
         run: echo "${{ steps.set_tags.outputs.tags }}" > image_list.txt
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: image_list
           path: image_list.txt
@@ -107,7 +107,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download image list
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: image_list
           path: .
