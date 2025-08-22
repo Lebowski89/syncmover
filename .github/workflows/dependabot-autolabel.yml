@@ -1,9 +1,13 @@
+# .github/workflows/dependabot-autolabel.yml
 name: Dependabot Auto Label
 
 on:
   pull_request:
-    types:
-      - opened
+    types: [opened]
+
+permissions:
+  pull-requests: write
+  contents: read
 
 jobs:
   add-label:
