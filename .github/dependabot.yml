@@ -17,11 +17,11 @@ updates:
       - "dependencies"
       - "automerge"
 
-  # Python dependencies (requirements.txt) - normal updates
+  # Python dependencies (requirements.txt)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "weekly"   # security updates will still come ASAP
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -29,25 +29,12 @@ updates:
     allow:
       - dependency-type: "direct"
     ignore:
+      # Ignore major updates, require manual review
       - dependency-type: "direct"
         update-types: ["major"]
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
-    labels:
-      - "dependencies"
-      - "automerge"
-
-  # Python dependencies (requirements.txt) - security updates
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    commit-message:
-      prefix: "chore"
-      include: "scope"
-    allow:
-      - dependency-type: "direct"
     labels:
       - "dependencies"
       - "security"
