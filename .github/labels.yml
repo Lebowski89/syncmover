@@ -1,19 +1,47 @@
-- name: feature
-  color: 1D76DB
-  description: New feature or enhancement
+# .github/labels.yml
+# Syncs repository labels with workflow at .github/workflows/labels.yml
 
-- name: bug
-  color: D73A4A
-  description: Something isn’t working
+labels:
+  # Dependabot & automation
+  - name: dependencies
+    color: "0366d6"
+    description: "Pull requests that update a dependency file"
 
-- name: chore
-  color: C5DEF5
-  description: Maintenance, refactor, or cleanup
+  - name: security
+    color: "d73a4a"
+    description: "Security updates and advisories"
 
-- name: docs
-  color: 0075ca
-  description: Documentation improvements
+  - name: automerge
+    color: "0e8a16"
+    description: "Automatically merged when checks pass"
 
-- name: dependencies
-  color: A2EEEF
-  description: Dependency updates
+  # Workflow / CI
+  - name: ci
+    color: "fbca04"
+    description: "Continuous integration related"
+
+  # Code quality
+  - name: chore
+    color: "c2e0c6"
+    description: "Maintenance tasks and chores"
+
+  # Issues
+  - name: bug
+    color: "d73a4a"
+    description: "Something isn’t working"
+
+  - name: enhancement
+    color: "a2eeef"
+    description: "New feature or request"
+
+  - name: documentation
+    color: "0075ca"
+    description: "Improvements or additions to documentation"
+
+  - name: help wanted
+    color: "008672"
+    description: "Extra attention is needed"
+
+  - name: wontfix
+    color: "ffffff"
+    description: "This will not be worked on"

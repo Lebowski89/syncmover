@@ -14,8 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
     steps:
-      - name: Add automerge label to Dependabot PR
+      - name: Add labels to Dependabot PR
         uses: actions-ecosystem/action-add-labels@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          labels: automerge
+          labels: |
+            dependencies
+            automerge
+
+      - name: Add security label to security updates
+        if: contains(github.event.pull_request.title, 'security') || contains(github.event.pull_request.body, 'security')
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: security
