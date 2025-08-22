@@ -1,47 +1,39 @@
-# .github/labels.yml
-# Syncs repository labels with workflow at .github/workflows/labels.yml
+- name: dependencies
+  color: "0366d6"
+  description: "Pull requests that update a dependency file"
 
-labels:
-  # Dependabot & automation
-  - name: dependencies
-    color: "0366d6"
-    description: "Pull requests that update a dependency file"
+- name: security
+  color: "d73a4a"
+  description: "Security updates and advisories"
 
-  - name: security
-    color: "d73a4a"
-    description: "Security updates and advisories"
+- name: automerge
+  color: "0e8a16"
+  description: "Automatically merged when checks pass"
 
-  - name: automerge
-    color: "0e8a16"
-    description: "Automatically merged when checks pass"
+- name: ci
+  color: "fbca04"
+  description: "Continuous integration related"
 
-  # Workflow / CI
-  - name: ci
-    color: "fbca04"
-    description: "Continuous integration related"
+- name: chore
+  color: "c2e0c6"
+  description: "Maintenance tasks and chores"
 
-  # Code quality
-  - name: chore
-    color: "c2e0c6"
-    description: "Maintenance tasks and chores"
+- name: bug
+  color: "d73a4a"
+  description: "Something isn’t working"
 
-  # Issues
-  - name: bug
-    color: "d73a4a"
-    description: "Something isn’t working"
+- name: enhancement
+  color: "a2eeef"
+  description: "New feature or request"
 
-  - name: enhancement
-    color: "a2eeef"
-    description: "New feature or request"
+- name: documentation
+  color: "0075ca"
+  description: "Improvements or additions to documentation"
 
-  - name: documentation
-    color: "0075ca"
-    description: "Improvements or additions to documentation"
+- name: help wanted
+  color: "008672"
+  description: "Extra attention is needed"
 
-  - name: help wanted
-    color: "008672"
-    description: "Extra attention is needed"
-
-  - name: wontfix
-    color: "ffffff"
-    description: "This will not be worked on"
+- name: wontfix
+  color: "ffffff"
+  description: "This will not be worked on"
