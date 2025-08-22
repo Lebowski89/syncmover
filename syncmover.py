@@ -1,22 +1,12 @@
 #!/usr/bin/env python3
-"""
-Syncthing Hardlink Watcher & Cleaner
-------------------------------------
-- Watches for Syncthing "FolderCompletion" events
-- Hardlinks completed files from sync folders to target folders
-- Async cleanup with batching, grace periods, and keep-recent-file support
-- Rotating logs with configurable log levels
-- Fully environment-variable-driven configuration
-- Supports multiple folders, each with an index
-"""
 
 import os, re, time, requests, logging, shutil, tempfile
 from threading import Thread
 from logging.handlers import RotatingFileHandler
 
-# ======================
-# === USER CONFIGURATION VIA ENVIRONMENT VARIABLES ===
-# ======================
+################################
+# USER CONFIG VIA ENV VARIABLES
+################################
 def get_env(name: str, default: str = "") -> str:
     file_key = f"{name}_FILE"
     if file_key in os.environ:
@@ -28,6 +18,7 @@ def get_env(name: str, default: str = "") -> str:
             raise RuntimeError(f"Failed to read secret from {path}: {e}")
     return os.getenv(name, default)
 
+# Syncthing Connection
 API_KEY = get_env("SYNCTHING_API_KEY")
 HOST = get_env("SYNCTHING_HOST", "127.0.0.1")
 PORT = int(get_env("SYNCTHING_PORT", "8384"))
@@ -35,12 +26,33 @@ API_TIMEOUT = int(get_env("API_TIMEOUT", "15"))
 API_URL = f"http://{HOST}:{PORT}/rest"
 HEADERS = {"X-API-Key": API_KEY}
 
+# Logging
 LOG_FILE = get_env("LOG_FILE", "/logs/syncmover.log")
 LOG_LEVEL = get_env("LOG_LEVEL", "INFO").upper()
 LOG_ROTATE_SIZE = int(get_env("LOG_ROTATE_SIZE", str(5*1024*1024)))
 LOG_ROTATE_BACKUP = int(get_env("LOG_ROTATE_BACKUP", "5"))
+
 DRY_RUN = get_env("DRY_RUN", "false").lower() in ("true", "1", "yes")
 
+# File Cleanup (used if not overridden per folder)
+CLEANUP_AFTER_HOURS = int(get_env("CLEANUP_AFTER_HOURS", "24"))
+CLEANUP_INTERVAL_MINUTES = int(get_env("CLEANUP_INTERVAL_MINUTES", "360"))
+CLEANUP_BATCH_SIZE = int(get_env("CLEANUP_BATCH_SIZE", "100"))
+KEEP_RECENT_FILES = int(get_env("KEEP_RECENT_FILES", "10"))
+GRACE_PERIOD_MINUTES = int(get_env("GRACE_PERIOD_MINUTES", "15"))
+LOG_GRACE_PERIOD_SKIPS = get_env("LOG_GRACE_PERIOD_SKIPS", "True").lower() in ("true", "1")
+
+# File Ownership
+OWNER_UID = int(get_env("OWNER_UID", "1000"))
+OWNER_GID = int(get_env("OWNER_GID", "1000"))
+
+# Ignore Rules
+IGNORE_FILES = set(get_env("IGNORE_FILES", ".stfolder").split(","))
+IGNORE_PATTERNS = tuple(get_env("IGNORE_PATTERNS", ".syncthing.,.tmp").split(","))
+
+################################
+# LOGGING SETUP
+################################
 log_dir = os.path.dirname(LOG_FILE)
 if log_dir and not os.path.exists(log_dir):
     try: os.makedirs(log_dir, exist_ok=True)
@@ -50,21 +62,6 @@ if log_dir and not os.path.exists(log_dir):
         tmp_log.close()
         log_dir = os.path.dirname(LOG_FILE)
 
-# Global defaults (used if not overridden per folder)
-CLEANUP_AFTER_HOURS = int(get_env("CLEANUP_AFTER_HOURS", "24"))
-CLEANUP_INTERVAL_MINUTES = int(get_env("CLEANUP_INTERVAL_MINUTES", "360"))
-CLEANUP_BATCH_SIZE = int(get_env("CLEANUP_BATCH_SIZE", "100"))
-KEEP_RECENT_FILES = int(get_env("KEEP_RECENT_FILES", "10"))
-GRACE_PERIOD_MINUTES = int(get_env("GRACE_PERIOD_MINUTES", "15"))
-LOG_GRACE_PERIOD_SKIPS = get_env("LOG_GRACE_PERIOD_SKIPS", "True").lower() in ("true", "1")
-OWNER_UID = int(get_env("OWNER_UID", "1000"))
-OWNER_GID = int(get_env("OWNER_GID", "1000"))
-IGNORE_FILES = set(get_env("IGNORE_FILES", ".stfolder").split(","))
-IGNORE_PATTERNS = tuple(get_env("IGNORE_PATTERNS", ".syncthing.,.tmp").split(","))
-
-# ======================
-# === LOGGING SETUP ===
-# ======================
 logger = logging.getLogger("SyncMover")
 logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S")
@@ -75,9 +72,9 @@ ch = logging.StreamHandler()
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
-# ======================
-# === UTILITIES ===
-# ======================
+################################
+# UTILITIES
+################################
 def should_ignore(filename):
     if filename in IGNORE_FILES: return True
     return any(pattern in filename for pattern in IGNORE_PATTERNS)
@@ -129,9 +126,9 @@ def process_folder(src, dst):
             else: skipped += 1
     logger.info(f"Processed {moved} files, skipped {skipped} from {src} -> {dst}")
 
-# ======================
-# === CLEANUP ===
-# ======================
+################################
+# CLEANUP
+################################
 def cleanup_folder_async(path, dry_run=False, keep_recent_override=None):
     def cleanup():
         now = time.time()
@@ -175,9 +172,9 @@ def cleanup_folder_async(path, dry_run=False, keep_recent_override=None):
     t.start()
     return t
 
-# ======================
-# === SYNCTHING API ===
-# ======================
+################################
+# SYNCTHING API
+################################
 def get_folder_id_map():
     try:
         r = requests.get(f"{API_URL}/system/config", headers=HEADERS, timeout=API_TIMEOUT)
@@ -188,9 +185,9 @@ def get_folder_id_map():
         logger.error(f"Failed to fetch folder config: {e}")
         return {}
 
-# ======================
-# === PER-FOLDER ENV CONFIG ===
-# ======================
+################################
+# PER FOLDER ENV CONFIG
+################################
 def get_folder_cleanup_settings():  # MODIFIED
     folder_cleanup_config = {}
     env_pattern = re.compile(r"(?P<folder>[A-Z0-9]+)_(?P<index>\d+)_LABEL")
@@ -241,9 +238,9 @@ def get_folder_cleanup_settings():  # MODIFIED
 
     return folder_cleanup_config
 
-# ======================
-# === MAIN LOOP UPDATE ===
-# ======================
+################################
+# MAIN LOOP UPDATE
+################################
 def main_loop(dry_run=False):
     logger.info("Starting Syncthing hardlink watcher with async cleanup and rotating logs...")
 
@@ -298,8 +295,8 @@ def main_loop(dry_run=False):
             logger.error(f"Main loop error: {e}")
             time.sleep(5)
 
-# ======================
-# === ENTRY POINT ===
-# ======================
+################################
+# ENTRY POINT
+################################
 if __name__ == "__main__":
     main_loop(dry_run=DRY_RUN)
