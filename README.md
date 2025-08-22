@@ -133,16 +133,19 @@ services:
     container_name: syncmover
     restart: unless-stopped
     environment:
+
       # Syncthing Connection
       SYNCTHING_API_KEY_FILE: /run/secrets/syncthing_api_key
       SYNCTHING_HOST: "127.0.0.1"
       SYNCTHING_PORT: "8384"
       API_TIMEOUT: "15"
+
       # Logging
       LOG_FILE: "/logs/syncmover.log"
       LOG_LEVEL: "INFO"
       LOG_ROTATE_SIZE: "5242880"
       LOG_ROTATE_BACKUP: "5"
+
       # File Cleanup
       DRY_RUN: "false"
       CLEANUP_AFTER_HOURS: "24"
@@ -151,19 +154,23 @@ services:
       KEEP_RECENT_FILES: "10"
       GRACE_PERIOD_MINUTES: "15"
       LOG_GRACE_PERIOD_SKIPS: "true"
+
       # File Ownership
       OWNER_UID: "1000"
       OWNER_GID: "1000"
+
       # Ignore Rules
       IGNORE_FILES: ".stfolder"
       IGNORE_PATTERNS: ".syncthing.,.tmp"
+
       # Folder Mappings
-      #
+
       # Movies 
       MOVIES_0_LABEL: "Movies"
       MOVIES_0_SYNC_PATH: "/data/sync/movies"
       MOVIES_0_MOVER_PATH: "/data/media/movies"
       MOVIES_0_CLEANUP: "true"  ## Cleanup will occurr using global cleanup settings
+
       # Movies-4K
       MOVIES_1_LABEL: "Movies-4K"
       MOVIES_1_SYNC_PATH: "/data/sync/movies-4k"
@@ -174,6 +181,7 @@ services:
       MOVIES_1_CLEANUP_BATCH_SIZE: "20"
       MOVIES_1_KEEP_RECENT_FILES: "5"
       MOVIES_1_GRACE_PERIOD_MINUTES: "10"
+
       # TV
       TV_0_LABEL: "TVShows"
       TV_0_SYNC_PATH: "/data/sync/tv"
@@ -184,6 +192,7 @@ services:
       TV_0_CLEANUP_BATCH_SIZE: "10"
       TV_0_KEEP_RECENT_FILES: "3"
       TV_0_GRACE_PERIOD_MINUTES: "5"
+
       # Documents
       DOCS_0_FOLDER_LABEL: 'Documents'
       DOCS_0_SYNC_PATH: '/data/sync/docs'
