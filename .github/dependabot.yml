@@ -30,13 +30,13 @@ updates:
       - dependency-type: "direct"
     ignore:
       # Ignore major updates to require manual review
-      - dependency-type: "all"
-        update-types: ["version-update:semver-major"]
+      - dependency-type: "direct"
+        update-types: ["major"]
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
       security:
-        applies-to: security-updates
+        applies-to: "security-updates"
     labels:
       - "dependencies"
       - "security"
