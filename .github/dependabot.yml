@@ -1,7 +1,7 @@
 # .github/dependabot.yml
 version: 2
 updates:
-  # GitHub Actions updates
+  # Keep GitHub Actions up to date
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -13,15 +13,13 @@ updates:
     groups:
       actions-minor-patch:
         update-types: ["minor", "patch"]
-    labels:
-      - "dependencies"
-      - "automerge"
+    labels: ["dependencies", "automerge"]
 
-  # Python dependencies (requirements.txt)
+  # Keep Python deps (requirements.txt) up to date
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"   # security updates will still come ASAP
+      interval: "weekly"     # security PRs still come ASAP
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -29,18 +27,15 @@ updates:
     allow:
       - dependency-type: "direct"
     ignore:
-      # Ignore major updates, require manual review
-      - dependency-type: "direct"
-        update-types: ["major"]
+      # Block all major bumps from auto-PRs (you can handle majors manually)
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
-    labels:
-      - "dependencies"
-      - "security"
-      - "automerge"
+    labels: ["dependencies", "security", "automerge"]
 
-  # Docker base images
+  # Keep Docker base images up to date
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -52,6 +47,4 @@ updates:
     groups:
       all-docker-updates:
         patterns: ["*"]
-    labels:
-      - "dependencies"
-      - "automerge"
+    labels: ["dependencies", "automerge"]
