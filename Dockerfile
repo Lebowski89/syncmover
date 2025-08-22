@@ -1,7 +1,7 @@
 # ----------------------
 # Stage 1: Builder
 # ----------------------
-FROM python:3.11-slim AS builder
+FROM python:3.13-slim AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ RUN chmod +x docker-entrypoint.sh
 # ----------------------
 # Stage 2: Final
 # ----------------------
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
