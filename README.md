@@ -1,8 +1,25 @@
 # SyncMover
 
-This service watches Syncthing folder completion events, hardlinks files from sync folders to media folders, and optionally cleans up old files. 
+This service watches Syncthing folder completion events, hardlinks files from sync folders to media folders, and optionally cleans up old files.
+
+Table of Contents
+------
+
+1. [Features](#Features)
+2. [An 'Ansible Setup'](#Setup)
+3. [Group_Vars](#Group_Vars)
+4. [Pre_Tasks](#Pre_Tasks)
+5. [Roles](#Roles) | [Roles (Tags)](#Role_Tags) | [Roles (Multi-Part / Multi-Machine)](#Multi_Roles)
+6. (Role) [Defaults](#Roles_Defaults) | [Files](#Roles_Files) | [Tasks](#Roles_Tasks) | [Sub-Tasks](#Roles_Sub_Tasks) | [Templates/Configs](#Roles_Templates_Configs) | [Templates/Compose](#Roles_Templates_Compose)
+7. [To Compose or not to Compose](#Compose)
+8. [Got Modules?](#Modules)
+9. [Handling Sensitive Variables](#Vault)
+10. [Learning from Relevant Examples](#Saltbox)
+11. [Ansible Lives](#Alive)
 
 ---
+
+<a name="Features"/>
 
 ## Features
 
@@ -84,6 +101,8 @@ This service watches Syncthing folder completion events, hardlinks files from sy
 
 **The below variables are optional. SyncMover will use global cleanup settings if not provided**
 
+| Variable                                         | Description                                                |
+| ------------------------------------------------ | -----------------------------------------------------------|
 | `<FOLDERNAME>_<INDEX>_CLEANUP_AFTER_HOURS`       | Delete folder files older than X hours                     |
 | `<FOLDERNAME>_<INDEX>_CLEANUP_INTERVAL_MINUTES`  | Run folder cleanup every X minutes                         |
 | `<FOLDERNAME>_<INDEX>_CLEANUP_BATCH_SIZE`        | Max folder files to delete per cleanup run                 |
