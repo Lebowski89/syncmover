@@ -6,16 +6,14 @@ Table of Contents
 ------
 
 1. [Features](#Features)
-2. [An 'Ansible Setup'](#Setup)
-3. [Group_Vars](#Group_Vars)
-4. [Pre_Tasks](#Pre_Tasks)
-5. [Roles](#Roles) | [Roles (Tags)](#Role_Tags) | [Roles (Multi-Part / Multi-Machine)](#Multi_Roles)
-6. (Role) [Defaults](#Roles_Defaults) | [Files](#Roles_Files) | [Tasks](#Roles_Tasks) | [Sub-Tasks](#Roles_Sub_Tasks) | [Templates/Configs](#Roles_Templates_Configs) | [Templates/Compose](#Roles_Templates_Compose)
-7. [To Compose or not to Compose](#Compose)
-8. [Got Modules?](#Modules)
-9. [Handling Sensitive Variables](#Vault)
-10. [Learning from Relevant Examples](#Saltbox)
-11. [Ansible Lives](#Alive)
+2. [Requirements](#Requirements)
+3. [Environmental Variables](#Envvars)
+4. [Docker Compose](#Compose)
+5. [.env](#Env)
+6. [Handling Sensitive Variables](#Secrets)
+7. [Deployment Tips](#Deploy)
+8. [Contributing](#Contributing)
+9. [Support](#Coffee)
 
 ---
 
@@ -37,12 +35,16 @@ Table of Contents
 
 ---
 
+<a name="Requirements"/>
+
 ## Requirements
 
 - Syncthing running and accessible from the container  
 - Sync and media folders on same volume/pool if hardlinking
 
 ---
+
+<a name="Envvars"/>
 
 ## Environment Variables
 
@@ -120,6 +122,8 @@ Table of Contents
 - You can add additional sync and media paths to the container but files will be copied instead of hardlinked.
 - Once you've set `<FOLDER_INDEX_CLEANUP>` to `true` or `false`,  the other folder cleanup variables are optional.
 
+<a name="Compose"/>
+
 ## Example docker-compose.yml
 
 ```bash
@@ -195,6 +199,7 @@ secrets:
   syncthing_api_key:
     file: ./secrets/syncthing_api_key.txt
 ```
+<a name="Env"/>
 
 ### Using an .env file:
 
@@ -207,6 +212,8 @@ services:
     env_file:
       - .env
 ```
+
+<a name="Secrets"/>
 
 ### Handling sensitive variables
 
@@ -225,11 +232,21 @@ secrets:
     file: ./secrets/syncthing_api_key.txt
 ```
 
+<a name="Deploy"/>
+
 ## Deployment Tips
 1. Keep sensitive environment variables in a .env file or use Docker secrets.
 2. Use a single bind mount for both your sync and media folder (for hardlinking)
 3. Monitor logs to confirm correct hardlinking and cleanup.
 
+<a name="Contributing"/>
+
 ## Contributing
 - Fork the repo and submit pull requests for new features or bug fixes.
 - Use GitHub Issues for bug reports or feature requests.
+
+<a name="Support"/>
+
+## Support
+
+<a href="https://buymeacoffee.com/lebowski89" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
