@@ -7,13 +7,14 @@ Table of Contents
 
 1. [Features](#Features)
 2. [Requirements](#Requirements)
-3. [Environmental Variables](#Envvars)
-4. [Docker Compose](#Compose)
-5. [.env](#Env)
-6. [Handling Sensitive Variables](#Secrets)
-7. [Deployment Tips](#Deploy)
-8. [Contributing](#Contributing)
-9. [Support](#Coffee)
+3. [Settings](#Settings)
+4. [Deploy: Docker Run](#Run)
+5. [Deploy: Docker Compose](#Compose)
+6. [Using .env File](#Env)
+7. [Handling Sensitive Variables](#Secrets)
+8. [Deployment Tips](#Deploy)
+9. [Contributing](#Contributing)
+10. [Support](#Coffee)
 
 ---
 
@@ -44,9 +45,9 @@ Table of Contents
 
 ---
 
-<a name="Envvars"/>
+<a name="Settings"/>
 
-## Environment Variables
+## Settings
 
 ### Syncthing Connection
 
@@ -122,9 +123,67 @@ Table of Contents
 - You can add additional sync and media paths to the container but files will be copied instead of hardlinked.
 - Once you've set `<FOLDER_INDEX_CLEANUP>` to `true` or `false`,  the other folder cleanup variables are optional.
 
+<a name="Run"/>
+
+## Deploy: Docker Run (Example)
+
+```bash
+docker run -d \
+  --name=syncmover \
+  --restart unless-stopped \
+  -v /host/data:/data \
+  -v /host/logs:/logs \
+  -e SYNCTHING_API_KEY_FILE="SomeAPIKey" \
+  -e SYNCTHING_HOST="127.0.0.1" \
+  -e SYNCTHING_PORT="8384" \
+  -e API_TIMEOUT="15" \
+  -e LOG_FILE="/logs/syncmover.log" \
+  -e LOG_LEVEL="INFO" \
+  -e LOG_ROTATE_SIZE="5242880" \
+  -e LOG_ROTATE_BACKUP="5" \
+  -e DRY_RUN="false" \
+  -e CLEANUP_AFTER_HOURS="24" \
+  -e CLEANUP_INTERVAL_MINUTES="360" \
+  -e CLEANUP_BATCH_SIZE="100" \
+  -e KEEP_RECENT_FILES="10" \
+  -e GRACE_PERIOD_MINUTES="15" \
+  -e LOG_GRACE_PERIOD_SKIPS="true" \
+  -e OWNER_UID="1000" \
+  -e OWNER_GID="1000" \
+  -e IGNORE_FILES=".stfolder" \
+  -e IGNORE_PATTERNS=".syncthing.,.tmp" \
+  -e MOVIES_0_LABEL="Movies" \
+  -e MOVIES_0_SYNC_PATH="/data/sync/movies" \
+  -e MOVIES_0_MOVER_PATH="/data/media/movies" \
+  -e MOVIES_0_CLEANUP="true" \
+  -e MOVIES_1_LABEL="Movies-4K" \
+  -e MOVIES_1_SYNC_PATH="/data/sync/movies-4k" \
+  -e MOVIES_1_MOVER_PATH="/data/media/movies-4k" \
+  -e MOVIES_1_CLEANUP="true" \
+  -e MOVIES_1_CLEANUP_AFTER_HOURS="24" \
+  -e MOVIES_1_CLEANUP_INTERVAL_MINUTES="60" \
+  -e MOVIES_1_CLEANUP_BATCH_SIZE="20" \
+  -e MOVIES_1_KEEP_RECENT_FILES="5" \
+  -e MOVIES_1_GRACE_PERIOD_MINUTES="10" \
+  -e TV_0_LABEL="TVShows" \
+  -e TV_0_SYNC_PATH="/data/sync/tv" \
+  -e TV_0_MOVER_PATH="/data/media/tv" \
+  -e TV_0_CLEANUP="true" \
+  -e TV_0_CLEANUP_AFTER_HOURS="48" \
+  -e TV_0_CLEANUP_INTERVAL_MINUTES="120" \
+  -e TV_0_CLEANUP_BATCH_SIZE="10" \
+  -e TV_0_KEEP_RECENT_FILES="3" \
+  -e TV_0_GRACE_PERIOD_MINUTES="5" \
+  -e DOCS_0_FOLDER_LABEL="Documents" \
+  -e DOCS_0_SYNC_PATH="/data/sync/docs" \
+  -e DOCS_0_MOVER_PATH="/data/media/docs" \
+  -e DOCS_0_CLEANUP="false" \
+  lebowski89/syncmover:latest
+```
+
 <a name="Compose"/>
 
-## Example docker-compose.yml
+## Deploy: Docker Compose (Example)
 
 ```bash
 services:
@@ -194,7 +253,7 @@ services:
       TV_0_GRACE_PERIOD_MINUTES: "5"
 
       # Documents
-      DOCS_0_FOLDER_LABEL: 'Documents'
+      DOCS_0_LABEL: 'Documents'
       DOCS_0_SYNC_PATH: '/data/sync/docs'
       DOCS_0_MOVER_PATH: '/data/media/docs'
       DOCS_0_CLEANUP: "false"  ## No cleanup for this folder
