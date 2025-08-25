@@ -4,25 +4,21 @@ This service watches Syncthing folder completion events, hardlinks files from sy
 
 ---
 
-<a name="Features"/>
-
 ## Features
 
-- Watches Syncthing 'FolderCompletion' events.
-- Hardlinks synced files to target folders.
+- Watches Syncthing 'FolderCompletion' events
+- Hardlinks synced files to target folders
 - Falls back to file copy when unable to hardlink
 - Async cleanup with batching, grace periods, and keep-recent-file support
-- Fully environment-variable-driven configuration.
-- Supports multiple folders (e.g., Movies, TV).
-- Rotating logs and configurable log levels.
+- Fully environment-variable-driven configuration
+- Supports multiple folders (e.g., Movies, TV)
+- Rotating logs and configurable log levels
 - Ignores unwanted files (scene notes, samples, cover art, etc.)
 - Ensures correct UID/GID ownership on hardlinked files
 - Grace periods to avoid touching newly added files
-- Async cleanup with batching to prevent I/O spikes
+- Async cleanup with batching to prevent I/O spikes.
 
 ---
-
-<a name="Requirements"/>
 
 ## Requirements
 
@@ -33,23 +29,17 @@ This service watches Syncthing folder completion events, hardlinks files from sy
 
 ---
 
-<a name="Settings"/>
-
 ## Settings
 
 See [SETTINGS.md](SETTINGS.md)
 
 ---
 
-<a name="Docker"/>
+## Deploy
 
-## Deploy: Docker
-
-See [DOCKER.md](DOCKER.md)
+### [Docker](DOCKER.md) ###
 
 ---
-
-<a name="Deploy"/>
 
 ## Deployment Tips
 1. Keep sensitive environment variables in a .env file or use Docker secrets.
@@ -58,15 +48,11 @@ See [DOCKER.md](DOCKER.md)
 
 ---
 
-<a name="Contributing"/>
-
 ## Contributing
 - Fork the repo and submit pull requests for new features or bug fixes.
 - Use GitHub Issues for bug reports or feature requests.
 
 ---
-
-<a name="Support"/>
 
 ## Support
 
