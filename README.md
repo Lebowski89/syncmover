@@ -9,12 +9,13 @@ Table of Contents
 2. [Requirements](#Requirements)
 3. [Settings](#Settings)
 4. [Deploy: Docker Run](#Run)
-5. [Deploy: Docker Compose](#Compose)
-6. [Using .env File](#Env)
-7. [Handling Sensitive Variables](#Secrets)
-8. [Deployment Tips](#Deploy)
-9. [Contributing](#Contributing)
-10. [Support](#Coffee)
+5. [Deploy: Docker Run .env File](#Run)
+6. [Deploy: Docker Compose](#Compose)
+7. [Deploy: Docker Compose .env File](#Env2)
+8. [Handling Sensitive Variables](#Secrets)
+9. [Deployment Tips](#Deploy)
+10. [Contributing](#Contributing)
+11. [Support](#Coffee)
 
 ---
 
@@ -40,6 +41,8 @@ Table of Contents
 
 ## Requirements
 
+- Python (Non-Docker)
+- Docker
 - Syncthing running and accessible from the container  
 - Sync and media folders on same volume/pool if hardlinking
 
@@ -181,6 +184,23 @@ docker run -d \
   lebowski89/syncmover:latest
 ```
 
+<a name="Env1"/>
+
+### Docker Run .env file:
+
+1. Copy .env.example → /path/to/env/syncmover.env and fill in your Syncthing API key and folder paths.
+2. Reference the syncmover.env file in your Docker Run:
+
+```bash
+docker run -d \
+  --name=syncmover \
+  --restart unless-stopped \
+  -v /host/data:/data \
+  -v /host/logs:/logs \
+  --env-file /host/syncmover.env \
+  lebowski89/syncmover:latest
+```
+
 <a name="Compose"/>
 
 ## Deploy: Docker Compose (Example)
@@ -267,11 +287,11 @@ secrets:
   syncthing_api_key:
     file: ./secrets/syncthing_api_key.txt
 ```
-<a name="Env"/>
+<a name="Env2"/>
 
-### Using an .env file:
+### Docker Compose .env file:
 
-1. Copy .env.example → .env and fill in your actual Syncthing API key and folder paths.
+1. Copy .env.example → .env and fill in your Syncthing API key and folder paths.
 2. Reference the .env file in docker-compose.yml:
 
 ```bash
