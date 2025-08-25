@@ -14,7 +14,15 @@ sudo apt update && sudo apt install -y python3 python3-pip
 pip3 install requests python-dotenv
 ```
 
+If your Python environment is externally managed, install via apt:
+
+```bash
+sudo apt install python3-dotenv
+```
+
 2. Clone and run
+
+(Assuming git is installed)
 
 ```bash
 git clone https://github.com/lebowski89/syncmover.git
@@ -66,12 +74,16 @@ pip install requests python-dotenv
 
 2. Clone and run
 
+With Git for Windows installed, VSCode:
+
 ```powershell
 git clone https://github.com/lebowski89/syncmover.git
 cd syncmover
 copy .env.example .env   # edit with your settings
 python syncmover.py
 ```
+
+You can also clone via the GitHub SyncMover repository page.
 
 3. Run at startup
 
