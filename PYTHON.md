@@ -3,7 +3,13 @@
 
 ---
 
-## Linux and macOS
+## Requirements
+- Python 3.8+
+- pip package manager
+
+---
+
+## Deploying on Linux and macOS
 
 ---
 
@@ -17,7 +23,7 @@ pip3 install requests python-dotenv
 If your Python environment is externally managed, install via apt:
 
 ```bash
-sudo apt install python3-dotenv
+sudo apt install python3-requests python3-dotenv
 ```
 
 2. Clone and run
@@ -59,7 +65,7 @@ sudo systemctl enable --now syncmover
 
 ---
 
-## Windows
+## Deploying on Windows
 
 ---
 

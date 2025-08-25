@@ -21,11 +21,7 @@ This service watches Syncthing folder completion events, hardlinks files from sy
 ---
 
 ## Requirements
-
-- Python (Non-Docker)
-- Docker
 - Syncthing running and accessible from the container  
-- Sync and media folders on same volume/pool if hardlinking
 
 ---
 
