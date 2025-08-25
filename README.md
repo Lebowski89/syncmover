@@ -37,6 +37,8 @@ This service watches Syncthing folder completion events, hardlinks files from sy
 
 ### [Docker](DOCKER.md) ###
 
+### [Python](PYTHON.md) ###
+
 ---
 
 ## Deployment Tips
