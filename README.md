@@ -2,17 +2,6 @@
 
 This service watches Syncthing folder completion events, hardlinks files from sync folders to media folders, and optionally cleans up old files.
 
-Table of Contents
-------
-
-1. [Features](#Features)
-2. [Requirements](#Requirements)
-3. [Settings](#Settings)
-4. [Deploy: Docker](#Docker)
-5. [Deployment Tips](#Deploy)
-6. [Contributing](#Contributing)
-7. [Support](#Coffee)
-
 ---
 
 <a name="Features"/>
@@ -50,11 +39,15 @@ Table of Contents
 
 See [SETTINGS.md](SETTINGS.md)
 
+---
+
 <a name="Docker"/>
 
 ## Deploy: Docker
 
 See [DOCKER.md](DOCKER.md)
+
+---
 
 <a name="Deploy"/>
 
@@ -63,11 +56,15 @@ See [DOCKER.md](DOCKER.md)
 2. Use a single bind mount for both your sync and media folder (for hardlinking)
 3. Monitor logs to confirm correct hardlinking and cleanup.
 
+---
+
 <a name="Contributing"/>
 
 ## Contributing
 - Fork the repo and submit pull requests for new features or bug fixes.
 - Use GitHub Issues for bug reports or feature requests.
+
+---
 
 <a name="Support"/>
 
