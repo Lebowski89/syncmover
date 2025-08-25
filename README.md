@@ -29,9 +29,7 @@ This service watches Syncthing folder completion events, hardlinks files from sy
 
 ---
 
-## Settings
-
-See [SETTINGS.md](SETTINGS.md)
+## [Settings](SETTINGS.md)
 
 ---
 

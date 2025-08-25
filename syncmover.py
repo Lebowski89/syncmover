@@ -3,6 +3,32 @@
 import os, re, time, requests, logging, shutil, tempfile
 from threading import Thread
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from dotenv import load_dotenv
+import argparse
+
+################################
+# LOAD CONFIGURATION
+################################
+def load_config():
+    # Priority 1: explicit SYNCMOVER_CONFIG env variable
+    config_file = os.getenv("SYNCMOVER_CONFIG")
+
+    # Priority 2: platform defaults if not set
+    if not config_file:
+        if os.name == "nt":  # Windows
+            appdata = os.getenv("APPDATA", "")
+            if appdata:
+                config_file = os.path.join(appdata, "SyncMover", "syncmover.env")
+        else:  # Linux/macOS
+            config_file = os.path.expanduser("~/.config/syncmover/syncmover.env")
+
+    # Load file if it exists
+    if config_file and os.path.exists(config_file):
+        load_dotenv(config_file, override=False)
+
+# Run config loader first
+load_config()
 
 ################################
 # USER CONFIG VIA ENV VARIABLES
@@ -34,7 +60,7 @@ LOG_ROTATE_BACKUP = int(get_env("LOG_ROTATE_BACKUP", "5"))
 
 DRY_RUN = get_env("DRY_RUN", "false").lower() in ("true", "1", "yes")
 
-# File Cleanup (used if not overridden per folder)
+# File Cleanup (defaults)
 CLEANUP_AFTER_HOURS = int(get_env("CLEANUP_AFTER_HOURS", "24"))
 CLEANUP_INTERVAL_MINUTES = int(get_env("CLEANUP_INTERVAL_MINUTES", "360"))
 CLEANUP_BATCH_SIZE = int(get_env("CLEANUP_BATCH_SIZE", "100"))
@@ -188,7 +214,7 @@ def get_folder_id_map():
 ################################
 # PER FOLDER ENV CONFIG
 ################################
-def get_folder_cleanup_settings():  # MODIFIED
+def get_folder_cleanup_settings():
     folder_cleanup_config = {}
     env_pattern = re.compile(r"(?P<folder>[A-Z0-9]+)_(?P<index>\d+)_LABEL")
 
