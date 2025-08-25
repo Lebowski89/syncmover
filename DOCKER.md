@@ -73,7 +73,7 @@ docker run -d \
 
 ### Docker Run with .env file ###
 
-1. Copy .env.example → /path/to/env/syncmover.env and fill in your Syncthing API key and folder paths.
+1. Copy [.env.example](https://github.com/Lebowski89/syncmover/blob/main/.env.example) → /path/to/env/syncmover.env and fill in your Syncthing API key and folder paths.
 2. Reference the syncmover.env file in your Docker Run:
 
 ```bash
@@ -177,7 +177,7 @@ secrets:
 
 ### Docker Compose with .env file ###
 
-1. Copy .env.example → .env and fill in your Syncthing API key and folder paths.
+1. Copy [.env.example](https://github.com/Lebowski89/syncmover/blob/main/.env.example) → .env and fill in your Syncthing API key and folder paths.
 2. Reference the .env file in docker-compose.yml:
 
 ```bash
